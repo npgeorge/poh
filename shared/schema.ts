@@ -107,6 +107,8 @@ export const insertPrinterSchema = createInsertSchema(printers).omit({
   createdAt: true,
   rating: true,
   completedJobs: true,
+}).extend({
+  pricePerGram: z.number().or(z.string()).transform((val) => String(val)),
 });
 
 export const insertJobSchema = createInsertSchema(jobs).omit({
