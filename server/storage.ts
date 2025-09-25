@@ -2,12 +2,15 @@ import {
   users,
   printers,
   jobs,
+  notifications,
   type User,
   type UpsertUser,
   type Printer,
   type InsertPrinter,
   type Job,
   type InsertJob,
+  type Notification,
+  type InsertNotification,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -31,6 +34,12 @@ export interface IStorage {
   getJobsByPrinterId(printerId: number): Promise<Job[]>;
   updateJob(id: number, updates: Partial<InsertJob>): Promise<Job>;
   getAllJobs(): Promise<Job[]>;
+  
+  // Notification operations
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  getUnreadNotifications(userId: string): Promise<Notification[]>;
+  markNotificationRead(id: number): Promise<void>;
+  getUserNotifications(userId: string): Promise<Notification[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -145,6 +154,39 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(jobs)
       .orderBy(desc(jobs.createdAt));
+  }
+
+  // Notification operations
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const [newNotification] = await db
+      .insert(notifications)
+      .values(notification)
+      .returning();
+    return newNotification;
+  }
+
+  async getUnreadNotifications(userId: string): Promise<Notification[]> {
+    return await db
+      .select()
+      .from(notifications)
+      .where(and(eq(notifications.userId, userId), eq(notifications.read, false)))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async markNotificationRead(id: number): Promise<void> {
+    await db
+      .update(notifications)
+      .set({ read: true })
+      .where(eq(notifications.id, id));
+  }
+
+  async getUserNotifications(userId: string): Promise<Notification[]> {
+    return await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, userId))
+      .orderBy(desc(notifications.createdAt))
+      .limit(50); // Limit to recent 50 notifications
   }
 }
 

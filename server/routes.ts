@@ -1,11 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { insertPrinterSchema, insertJobSchema } from "@shared/schema";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -242,10 +244,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedJob = await storage.updateJob(jobId, updates);
+      
+      // Broadcast real-time job update if status changed
+      if (updates.status) {
+        await (httpServer as any).broadcastJobUpdate(jobId, updates.status);
+      }
+      
       res.json(updatedJob);
     } catch (error) {
       console.error("Error updating job:", error);
       res.status(500).json({ message: "Failed to update job" });
+    }
+  });
+
+  // Notification routes
+  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const notifications = await storage.getUserNotifications(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ message: "Failed to fetch notifications" });
+    }
+  });
+
+  app.put("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
+    try {
+      const notificationId = parseInt(req.params.id);
+      await storage.markNotificationRead(notificationId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error marking notification read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
     }
   });
 
@@ -277,5 +308,231 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // WebSocket Server Setup - Only on /api/ws path to avoid Vite conflicts
+  const wss = new WebSocketServer({ 
+    server: httpServer,
+    path: '/api/ws'
+  });
+  
+  // Store authenticated WebSocket connections
+  const authenticatedConnections = new Map<string, WebSocket[]>();
+  
+  wss.on('connection', (ws: WebSocket, req) => {
+    console.log('WebSocket connection attempt');
+    
+    let authenticatedUserId: string | null = null;
+    
+    // Immediately validate session from upgrade request
+    const validateSession = async (): Promise<string | null> => {
+      try {
+        // Create a mock request/response to leverage existing session middleware
+        const mockReq = {
+          headers: req.headers,
+          session: null as any,
+          sessionID: null as any,
+        };
+        
+        // Use existing Replit Auth session parsing
+        const cookies = req.headers.cookie || '';
+        const sessionMatch = cookies.match(/connect\.sid=([^;]+)/);
+        if (!sessionMatch) {
+          return null;
+        }
+        
+        let sessionId = decodeURIComponent(sessionMatch[1]);
+        
+        // Handle signed cookie format: s:<id>.<signature>
+        if (sessionId.startsWith('s:')) {
+          sessionId = sessionId.slice(2); // Remove 's:' prefix
+          const dotIndex = sessionId.indexOf('.');
+          if (dotIndex !== -1) {
+            sessionId = sessionId.substring(0, dotIndex); // Extract session ID before signature
+          }
+        }
+        
+        // Import the session store to validate the session  
+        const { db } = await import('./db');
+        const { sessions } = await import('@shared/schema');
+        
+        // Query session directly from database
+        const [sessionData] = await db
+          .select()
+          .from(sessions)
+          .where(eq(sessions.sid, sessionId));
+          
+        if (!sessionData || new Date() > sessionData.expire) {
+          return null;
+        }
+        
+        // Extract user ID from session data
+        const sessData = sessionData.sess;
+        const userId = sessData?.passport?.user?.claims?.sub;
+        
+        if (!userId) {
+          return null;
+        }
+        
+        // Verify user exists
+        const user = await storage.getUser(userId);
+        return user ? userId : null;
+        
+      } catch (error) {
+        console.error('Session validation error:', error);
+        return null;
+      }
+    };
+    
+    ws.on('message', async (data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        
+        // Handle authentication - derive userId from session, not client
+        if (message.type === 'authenticate') {
+          if (authenticatedUserId) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Already authenticated'
+            }));
+            return;
+          }
+          
+          // Validate session and get real userId
+          const validatedUserId = await validateSession();
+          if (!validatedUserId) {
+            ws.send(JSON.stringify({
+              type: 'error',
+              message: 'Authentication failed. Please log in first.'
+            }));
+            ws.close();
+            return;
+          }
+
+          authenticatedUserId = validatedUserId;
+          
+          // Add connection to user's connections
+          if (!authenticatedConnections.has(authenticatedUserId)) {
+            authenticatedConnections.set(authenticatedUserId, []);
+          }
+          authenticatedConnections.get(authenticatedUserId)!.push(ws);
+          
+          ws.send(JSON.stringify({
+            type: 'authenticated',
+            message: 'Successfully authenticated',
+            userId: authenticatedUserId
+          }));
+          
+          console.log(`WebSocket authenticated for user: ${authenticatedUserId}`);
+          
+          // Send unread notifications on connection
+          try {
+            const notifications = await storage.getUnreadNotifications(authenticatedUserId);
+            if (notifications.length > 0) {
+              ws.send(JSON.stringify({
+                type: 'notifications',
+                data: notifications
+              }));
+            }
+          } catch (error) {
+            console.error('Error fetching notifications:', error);
+          }
+        }
+
+        // Handle marking notifications as read
+        if (message.type === 'mark_read' && authenticatedUserId) {
+          try {
+            const { notificationId } = message;
+            await storage.markNotificationRead(notificationId);
+            ws.send(JSON.stringify({
+              type: 'notification_marked_read',
+              notificationId
+            }));
+          } catch (error) {
+            console.error('Error marking notification read:', error);
+          }
+        }
+      } catch (error) {
+        console.error('WebSocket message error:', error);
+      }
+    });
+    
+    ws.on('close', () => {
+      // Remove connection from all user arrays
+      for (const [userId, connections] of authenticatedConnections.entries()) {
+        const index = connections.indexOf(ws);
+        if (index > -1) {
+          connections.splice(index, 1);
+          if (connections.length === 0) {
+            authenticatedConnections.delete(userId);
+          }
+          console.log(`WebSocket disconnected for user: ${userId}`);
+          break;
+        }
+      }
+    });
+  });
+  
+  // Global WebSocket broadcast functions
+  const broadcastToUser = (userId: string, message: any) => {
+    const connections = authenticatedConnections.get(userId);
+    if (connections) {
+      const messageStr = JSON.stringify(message);
+      connections.forEach(ws => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(messageStr);
+        }
+      });
+    }
+  };
+  
+  const broadcastJobUpdate = async (jobId: number, status: string) => {
+    try {
+      const job = await storage.getJobById(jobId);
+      if (!job) return;
+      
+      // Notify customer
+      await storage.createNotification({
+        userId: job.customerId,
+        type: 'job_update',
+        title: 'Job Status Update',
+        message: `Your print job "${job.fileName || `Job #${job.id}`}" status changed to ${status}`,
+        data: { jobId, status, fileName: job.fileName }
+      });
+      
+      // Notify printer owner if assigned
+      if (job.printerId) {
+        const printer = await storage.getPrinterById(job.printerId);
+        if (printer) {
+          await storage.createNotification({
+            userId: printer.userId,
+            type: 'job_update',
+            title: 'Job Status Update',
+            message: `Print job "${job.fileName || `Job #${job.id}`}" status changed to ${status}`,
+            data: { jobId, status, fileName: job.fileName }
+          });
+          
+          // Broadcast to printer owner
+          broadcastToUser(printer.userId, {
+            type: 'job_update',
+            data: { jobId, status, job }
+          });
+        }
+      }
+      
+      // Broadcast to customer
+      broadcastToUser(job.customerId, {
+        type: 'job_update',
+        data: { jobId, status, job }
+      });
+      
+    } catch (error) {
+      console.error('Error broadcasting job update:', error);
+    }
+  };
+  
+  // Attach broadcast functions to the server for use in routes
+  (httpServer as any).broadcastToUser = broadcastToUser;
+  (httpServer as any).broadcastJobUpdate = broadcastJobUpdate;
+  
   return httpServer;
 }
