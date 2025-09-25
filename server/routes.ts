@@ -198,13 +198,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/jobs/:id", isAuthenticated, async (req, res) => {
+  app.put("/api/jobs/:id", isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
       const updates = req.body;
+      const userId = req.user?.claims?.sub;
 
-      const job = await storage.updateJob(jobId, updates);
-      res.json(job);
+      // If updating with printerId (job acceptance), validate printer eligibility
+      if (updates.printerId && updates.status === 'matched') {
+        // Get the job to check material requirements
+        const job = await storage.getJobById(jobId);
+        if (!job) {
+          return res.status(404).json({ message: "Job not found" });
+        }
+
+        // Get the printer to validate ownership, availability, and materials
+        const printer = await storage.getPrinterById(updates.printerId);
+        if (!printer) {
+          return res.status(400).json({ message: "Invalid printer selected" });
+        }
+
+        // Validate printer ownership
+        if (printer.userId !== userId) {
+          return res.status(403).json({ message: "You can only assign your own printers to jobs" });
+        }
+
+        // Validate printer availability
+        if (printer.status !== 'available') {
+          return res.status(400).json({ message: "Selected printer is not available" });
+        }
+
+        // Validate material compatibility
+        if (job.material && !printer.materials.includes(job.material)) {
+          return res.status(400).json({ 
+            message: `Selected printer does not support ${job.material}. Supported materials: ${printer.materials.join(', ')}` 
+          });
+        }
+
+        // Prevent users from accepting their own jobs
+        if (job.customerId === userId) {
+          return res.status(400).json({ message: "You cannot accept your own print jobs" });
+        }
+      }
+
+      const updatedJob = await storage.updateJob(jobId, updates);
+      res.json(updatedJob);
     } catch (error) {
       console.error("Error updating job:", error);
       res.status(500).json({ message: "Failed to update job" });

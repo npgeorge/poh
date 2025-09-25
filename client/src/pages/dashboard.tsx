@@ -118,10 +118,35 @@ export default function Dashboard() {
     },
   });
 
-  const handleAcceptJob = (jobId: number) => {
+  const handleAcceptJob = (jobId: number, job: any) => {
+    // Check if user has any printers registered
+    if (!myPrinters || myPrinters.length === 0) {
+      toast({
+        title: "No Printers Registered",
+        description: "You need to register a 3D printer before accepting jobs.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Find a compatible printer that supports the job's material
+    const compatiblePrinter = myPrinters.find((printer: any) => 
+      printer.status === 'available' && 
+      printer.materials.includes(job.material)
+    );
+
+    if (!compatiblePrinter) {
+      toast({
+        title: "No Compatible Printer",
+        description: `None of your printers support ${job.material} or are currently available.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     updateJobMutation.mutate({
       jobId,
-      updates: { status: "matched", printerId: myPrinters[0]?.id }
+      updates: { status: "matched", printerId: compatiblePrinter.id }
     });
   };
 
@@ -426,7 +451,7 @@ export default function Dashboard() {
                             
                             <Button 
                               size="sm" 
-                              onClick={() => handleAcceptJob(job.id)}
+                              onClick={() => handleAcceptJob(job.id, job)}
                               disabled={updateJobMutation.isPending}
                               data-testid={`button-accept-${job.id}`}
                             >
