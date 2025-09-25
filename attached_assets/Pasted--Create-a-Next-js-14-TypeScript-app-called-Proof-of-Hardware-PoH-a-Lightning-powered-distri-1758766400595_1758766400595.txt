@@ -1,0 +1,79 @@
+```
+Create a Next.js 14 TypeScript app called "Proof of Hardware (PoH)" - a Lightning-powered distributed 3D printing marketplace where customers can pay any 3D printer owner globally to manufacture parts on-demand.
+
+CORE CONCEPT:
+- Upload STL file → AI matches to local printer → Lightning escrow payment → Print → AI quality control via phone photos → Payment release
+- "Uber for 3D printers" with Bitcoin payments and AI-powered quality assurance
+
+WEEK 1 MVP FEATURES:
+1. Landing page explaining the concept
+2. STL file upload with Three.js viewer
+3. Lightning invoice generation (use LNbits API)
+4. Basic printer registration form
+5. Simple job posting/matching interface
+6. Photo upload for quality control
+7. Database schema for users, printers, jobs
+
+TECH STACK:
+- Next.js 14 with App Router + TypeScript
+- Tailwind CSS + shadcn/ui components
+- Vercel Postgres for database
+- Vercel Blob for file storage
+- Three.js for STL viewing
+- LNbits API for Lightning payments
+
+DATABASE SCHEMA:
+```sql
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR(255) UNIQUE,
+  user_type VARCHAR(50), -- 'printer' or 'customer'
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE printers (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  name VARCHAR(255),
+  location VARCHAR(255),
+  materials JSON, -- ['PLA', 'ABS', 'PETG']
+  price_per_gram DECIMAL(10,2),
+  status VARCHAR(50) DEFAULT 'available'
+);
+
+CREATE TABLE jobs (
+  id SERIAL PRIMARY KEY,
+  customer_id INTEGER REFERENCES users(id),
+  printer_id INTEGER REFERENCES printers(id),
+  stl_file_url VARCHAR(255),
+  material VARCHAR(50),
+  estimated_cost DECIMAL(10,2),
+  status VARCHAR(50) DEFAULT 'pending',
+  lightning_invoice VARCHAR(255)
+);
+```
+
+KEY PAGES NEEDED:
+- / (landing page with value prop)
+- /upload (STL upload + job creation)
+- /printers (printer registration/profiles)
+- /dashboard (jobs overview)
+- /api/lightning (invoice generation)
+- /api/upload (file handling)
+
+INSTALL THESE PACKAGES:
+```bash
+npm install @vercel/postgres @vercel/blob three @types/three lucide-react
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add button card input label textarea badge
+```
+
+ENVIRONMENT VARIABLES NEEDED:
+- POSTGRES_URL
+- BLOB_READ_WRITE_TOKEN  
+- LNBITS_API_KEY
+
+START WITH: Basic project structure, landing page, and a working Lightning invoice test endpoint at /api/test-lightning that creates a 1000 sat invoice using LNbits API.
+
+Build this as the foundation for a global manufacturing network where Lightning enables instant payments to any 3D printer worldwide. Focus on clean, professional UI that appeals to engineers and Bitcoin users.
+```
