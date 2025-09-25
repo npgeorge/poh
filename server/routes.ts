@@ -148,6 +148,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/printers/search", async (req, res) => {
+    try {
+      const { materials, location, minPrice, maxPrice, status } = req.query;
+      
+      const filters: any = {};
+      
+      // Parse materials from comma-separated string
+      if (materials && typeof materials === 'string') {
+        filters.materials = materials.split(',').map(m => m.trim()).filter(Boolean);
+      }
+      
+      if (location && typeof location === 'string') {
+        filters.location = location.trim();
+      }
+      
+      if (minPrice && typeof minPrice === 'string') {
+        const parsed = parseFloat(minPrice);
+        if (!isNaN(parsed)) filters.minPrice = parsed;
+      }
+      
+      if (maxPrice && typeof maxPrice === 'string') {
+        const parsed = parseFloat(maxPrice);
+        if (!isNaN(parsed)) filters.maxPrice = parsed;
+      }
+      
+      if (status && typeof status === 'string') {
+        filters.status = status;
+      }
+      
+      const printers = await storage.searchPrinters(filters);
+      res.json(printers);
+    } catch (error) {
+      console.error("Error searching printers:", error);
+      res.status(500).json({ message: "Failed to search printers" });
+    }
+  });
+
   app.get("/api/printers/my", isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;

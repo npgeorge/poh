@@ -13,7 +13,15 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, gte, lte, ilike, arrayContains, or } from "drizzle-orm";
+
+export interface PrinterFilters {
+  materials?: string[];
+  location?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  status?: string;
+}
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -24,6 +32,7 @@ export interface IStorage {
   createPrinter(printer: InsertPrinter): Promise<Printer>;
   getPrintersByUserId(userId: string): Promise<Printer[]>;
   getAllPrinters(): Promise<Printer[]>;
+  searchPrinters(filters: PrinterFilters): Promise<Printer[]>;
   getPrinterById(id: number): Promise<Printer | undefined>;
   updatePrinter(id: number, updates: Partial<InsertPrinter>): Promise<Printer>;
   
@@ -85,6 +94,49 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(printers)
       .orderBy(desc(printers.rating));
+  }
+
+  async searchPrinters(filters: PrinterFilters): Promise<Printer[]> {
+    const conditions = [];
+    
+    // Filter by materials - check if printer supports any of the requested materials
+    if (filters.materials && filters.materials.length > 0) {
+      const materialConditions = filters.materials.map(material => 
+        arrayContains(printers.materials, [material])
+      );
+      conditions.push(or(...materialConditions));
+    }
+    
+    // Filter by location - case insensitive search
+    if (filters.location) {
+      conditions.push(ilike(printers.location, `%${filters.location}%`));
+    }
+    
+    // Filter by minimum price
+    if (filters.minPrice !== undefined) {
+      conditions.push(gte(printers.pricePerGram, filters.minPrice));
+    }
+    
+    // Filter by maximum price
+    if (filters.maxPrice !== undefined) {
+      conditions.push(lte(printers.pricePerGram, filters.maxPrice));
+    }
+    
+    // Filter by status
+    if (filters.status) {
+      conditions.push(eq(printers.status, filters.status));
+    }
+    
+    const query = db
+      .select()
+      .from(printers)
+      .orderBy(desc(printers.rating));
+    
+    if (conditions.length > 0) {
+      return await query.where(and(...conditions));
+    }
+    
+    return await query;
   }
 
   async getPrinterById(id: number): Promise<Printer | undefined> {

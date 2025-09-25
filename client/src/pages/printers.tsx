@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { isUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
+import { Separator } from "@/components/ui/separator";
 import { 
   Printer, 
   Plus, 
@@ -17,7 +19,10 @@ import {
   MapPin, 
   DollarSign,
   Star,
-  Settings
+  Settings,
+  Search,
+  Filter,
+  X
 } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -46,6 +51,15 @@ export default function PrintersPage() {
     materials: [] as string[]
   });
 
+  // Filter state
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    materials: [] as string[],
+    location: "",
+    priceRange: [0, 1] as [number, number],
+    status: "available"
+  });
+
   // Redirect to home if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -66,9 +80,38 @@ export default function PrintersPage() {
     enabled: !!user,
   });
 
-  const { data: allPrinters = [] } = useQuery({
-    queryKey: ["/api/printers"],
+  // Debounced search query
+  const searchQuery = useMemo(() => {
+    const params = new URLSearchParams();
+    
+    if (filters.materials.length > 0) {
+      params.set('materials', filters.materials.join(','));
+    }
+    if (filters.location.trim()) {
+      params.set('location', filters.location.trim());
+    }
+    if (filters.priceRange[0] > 0) {
+      params.set('minPrice', filters.priceRange[0].toString());
+    }
+    if (filters.priceRange[1] < 1) {
+      params.set('maxPrice', filters.priceRange[1].toString());
+    }
+    if (filters.status) {
+      params.set('status', filters.status);
+    }
+    
+    return params.toString() ? `?${params.toString()}` : '';
+  }, [filters]);
+
+  const { data: allPrinters = [], isLoading: searchLoading } = useQuery({
+    queryKey: ["/api/printers/search", searchQuery],
+    queryFn: async () => {
+      const response = await fetch(`/api/printers/search${searchQuery}`);
+      if (!response.ok) throw new Error('Failed to search printers');
+      return response.json();
+    },
     enabled: !!user,
+    staleTime: 1000, // Consider data stale after 1 second for real-time feel
   });
 
   const createPrinterMutation = useMutation({
@@ -147,6 +190,38 @@ export default function PrintersPage() {
         : [...prev.materials, materialId]
     }));
   };
+
+  // Filter management functions
+  const handleFilterMaterialToggle = (materialId: string) => {
+    setFilters(prev => ({
+      ...prev,
+      materials: prev.materials.includes(materialId)
+        ? prev.materials.filter(m => m !== materialId)
+        : [...prev.materials, materialId]
+    }));
+  };
+
+  const handleLocationFilter = (location: string) => {
+    setFilters(prev => ({ ...prev, location }));
+  };
+
+  const handlePriceRangeFilter = (range: [number, number]) => {
+    setFilters(prev => ({ ...prev, priceRange: range }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      materials: [],
+      location: "",
+      priceRange: [0, 1],
+      status: "available"
+    });
+  };
+
+  const hasActiveFilters = filters.materials.length > 0 || 
+    filters.location.trim() || 
+    filters.priceRange[0] > 0 || 
+    filters.priceRange[1] < 1;
 
   if (isLoading) {
     return (
@@ -396,14 +471,106 @@ export default function PrintersPage() {
           )}
         </section>
 
-        {/* All Printers Section */}
+        {/* All Printers Section with Filters */}
         <section>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold">All Available Printers</h2>
-            <Badge variant="outline" data-testid="all-printers-count">
-              {allPrinters.length} available
-            </Badge>
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="outline" 
+                onClick={() => setShowFilters(!showFilters)}
+                data-testid="button-toggle-filters"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                Filters {hasActiveFilters && <Badge className="ml-2">Active</Badge>}
+              </Button>
+              <Badge variant="outline" data-testid="all-printers-count">
+                {allPrinters.length} available
+              </Badge>
+            </div>
           </div>
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <Card className="mb-6">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center">
+                    <Search className="w-5 h-5 mr-2" />
+                    Search & Filter Printers
+                  </CardTitle>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} data-testid="button-clear-filters">
+                      <X className="w-4 h-4 mr-2" />
+                      Clear All
+                    </Button>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Location Search */}
+                <div>
+                  <Label htmlFor="location-search">Location</Label>
+                  <Input
+                    id="location-search"
+                    placeholder="Search by city, state, or country..."
+                    value={filters.location}
+                    onChange={(e) => handleLocationFilter(e.target.value)}
+                    className="mt-2"
+                    data-testid="input-location-filter"
+                  />
+                </div>
+
+                {/* Material Filters */}
+                <div>
+                  <Label>Supported Materials</Label>
+                  <div className="grid md:grid-cols-3 gap-4 mt-2">
+                    {MATERIALS.map((material) => (
+                      <div key={material.id} className="flex items-start space-x-3 p-3 border border-border rounded-lg">
+                        <Checkbox
+                          id={`filter-${material.id}`}
+                          checked={filters.materials.includes(material.id)}
+                          onCheckedChange={() => handleFilterMaterialToggle(material.id)}
+                          data-testid={`checkbox-filter-${material.id}`}
+                        />
+                        <div className="flex-1">
+                          <Label htmlFor={`filter-${material.id}`} className="font-medium cursor-pointer text-sm">
+                            {material.name}
+                          </Label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Price Range Filter */}
+                <div>
+                  <Label>Price Range (USD per gram)</Label>
+                  <div className="mt-4 space-y-4">
+                    <Slider
+                      value={filters.priceRange}
+                      onValueChange={handlePriceRangeFilter}
+                      max={1}
+                      min={0}
+                      step={0.01}
+                      className="w-full"
+                      data-testid="slider-price-range"
+                    />
+                    <div className="flex justify-between text-sm text-muted-foreground">
+                      <span>${filters.priceRange[0].toFixed(2)}</span>
+                      <span>${filters.priceRange[1].toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {searchLoading && (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          )}
 
           {allPrinters.length === 0 ? (
             <Card>
