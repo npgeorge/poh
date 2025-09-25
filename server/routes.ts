@@ -8,6 +8,7 @@ import { ObjectPermission } from "./objectAcl";
 import { insertPrinterSchema, insertJobSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
+import { aiAnalysisService } from "./aiAnalysisService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -294,6 +295,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Quality photo upload and AI analysis routes
+  app.post("/api/jobs/:id/quality-photos", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const { photoUrls } = req.body;
+      const userId = req.user?.claims?.sub;
+
+      if (!Array.isArray(photoUrls) || photoUrls.length === 0) {
+        return res.status(400).json({ message: "photoUrls array is required" });
+      }
+
+      // Validate job exists and user has permission
+      const job = await storage.getJobById(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Allow both customer and printer owner to upload quality photos
+      const printer = job.printerId ? await storage.getPrinterById(job.printerId) : null;
+      const hasPermission = job.customerId === userId || (printer && printer.userId === userId);
+      
+      if (!hasPermission) {
+        return res.status(403).json({ message: "You don't have permission to upload photos for this job" });
+      }
+
+      // Update job with quality photos
+      const updatedJob = await storage.updateJob(jobId, { 
+        qualityPhotos: photoUrls 
+      });
+
+      res.json({ 
+        message: "Quality photos uploaded successfully",
+        job: updatedJob,
+        analysisTriggered: false
+      });
+
+    } catch (error) {
+      console.error("Error uploading quality photos:", error);
+      res.status(500).json({ message: "Failed to upload quality photos" });
+    }
+  });
+
+  app.post("/api/jobs/:id/analyze-quality", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub;
+
+      // Get the job and validate permissions
+      const job = await storage.getJobById(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Allow both customer and printer owner to trigger analysis
+      const printer = job.printerId ? await storage.getPrinterById(job.printerId) : null;
+      const hasPermission = job.customerId === userId || (printer && printer.userId === userId);
+      
+      if (!hasPermission) {
+        return res.status(403).json({ message: "You don't have permission to analyze this job" });
+      }
+
+      // Check if quality photos exist
+      if (!job.qualityPhotos || !Array.isArray(job.qualityPhotos) || job.qualityPhotos.length === 0) {
+        return res.status(400).json({ message: "No quality photos available for analysis. Upload photos first." });
+      }
+
+      // Trigger AI analysis
+      console.log(`Starting AI analysis for job ${jobId} with ${job.qualityPhotos.length} photos`);
+      const analysisResult = await aiAnalysisService.analyzeQualityPhotos(job.qualityPhotos);
+
+      // Update job with analysis results
+      const updatedJob = await storage.updateJob(jobId, {
+        qualityScore: analysisResult.overallScore.toString(),
+        aiAnalysis: analysisResult
+      });
+
+      // Broadcast real-time update for AI analysis completion
+      await (httpServer as any).broadcastJobUpdate(jobId, 'quality_analyzed');
+
+      // Create notifications for both customer and printer owner
+      await storage.createNotification({
+        userId: job.customerId,
+        type: 'quality_analysis',
+        title: 'Quality Analysis Complete',
+        message: `AI analysis completed for "${job.fileName || `Job #${job.id}`}" - Quality Score: ${analysisResult.overallScore}/100`,
+        data: { jobId, qualityScore: analysisResult.overallScore, defectsCount: analysisResult.defects.length }
+      });
+
+      if (printer) {
+        await storage.createNotification({
+          userId: printer.userId,
+          type: 'quality_analysis',
+          title: 'Quality Analysis Complete',
+          message: `AI analysis completed for "${job.fileName || `Job #${job.id}`}" - Quality Score: ${analysisResult.overallScore}/100`,
+          data: { jobId, qualityScore: analysisResult.overallScore, defectsCount: analysisResult.defects.length }
+        });
+      }
+
+      res.json({
+        message: "Quality analysis completed successfully",
+        job: updatedJob,
+        analysis: analysisResult
+      });
+
+    } catch (error) {
+      console.error("Error analyzing quality photos:", error);
+      res.status(500).json({ message: "Failed to analyze quality photos" });
+    }
+  });
+
+  app.get("/api/jobs/:id/quality-analysis", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub;
+
+      // Get the job and validate permissions
+      const job = await storage.getJobById(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Allow both customer and printer owner to view analysis
+      const printer = job.printerId ? await storage.getPrinterById(job.printerId) : null;
+      const hasPermission = job.customerId === userId || (printer && printer.userId === userId);
+      
+      if (!hasPermission) {
+        return res.status(403).json({ message: "You don't have permission to view this analysis" });
+      }
+
+      res.json({
+        jobId: job.id,
+        qualityPhotos: job.qualityPhotos || [],
+        qualityScore: job.qualityScore ? parseFloat(job.qualityScore) : null,
+        aiAnalysis: job.aiAnalysis || null,
+        hasAnalysis: !!(job.qualityScore && job.aiAnalysis)
+      });
+
+    } catch (error) {
+      console.error("Error fetching quality analysis:", error);
+      res.status(500).json({ message: "Failed to fetch quality analysis" });
+    }
+  });
+
   // Notification routes
   app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
     try {
@@ -331,7 +475,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         req.body.stlFileURL,
         {
           owner: userId,
-          visibility: "private",
+          visibility: "public", // STL files need to be public for 3D viewer to access them
         },
       );
 

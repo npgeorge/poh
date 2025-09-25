@@ -16,7 +16,12 @@ import {
   TrendingUp,
   DollarSign,
   Eye,
-  Star
+  Star,
+  Brain,
+  Camera,
+  AlertTriangle,
+  CheckCircle2,
+  TrendingDown
 } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -97,6 +102,72 @@ export default function Dashboard() {
     },
   });
 
+  const analyzeQualityMutation = useMutation({
+    mutationFn: async ({ jobId }: { jobId: number }) => {
+      const response = await apiRequest("POST", `/api/jobs/${jobId}/analyze-quality`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "AI Analysis Complete",
+        description: `Quality score: ${data.analysis.overallScore}/100 with ${data.analysis.defects.length} defects detected.`,
+      });
+      // Invalidate queries to refresh data
+      useQueryClient().invalidateQueries({ queryKey: ["/api/jobs"] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to analyze quality photos. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const uploadQualityPhotosMutation = useMutation({
+    mutationFn: async ({ jobId, photoUrls }: { jobId: number; photoUrls: string[] }) => {
+      const response = await apiRequest("POST", `/api/jobs/${jobId}/quality-photos`, { photoUrls });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Photos Uploaded",
+        description: "Quality photos uploaded successfully. You can now run AI analysis.",
+      });
+      // Invalidate queries to refresh data
+      useQueryClient().invalidateQueries({ queryKey: ["/api/jobs"] });
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: "Failed to upload quality photos. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Test Lightning endpoint
   const testLightningMutation = useMutation({
     mutationFn: async () => {
@@ -155,6 +226,124 @@ export default function Dashboard() {
       jobId,
       updates: { status: "completed" }
     });
+  };
+
+  const handleAnalyzeQuality = (jobId: number) => {
+    analyzeQualityMutation.mutate({ jobId });
+  };
+
+  const handleUploadQualityPhotos = (jobId: number) => {
+    // For MVP, we'll simulate photo upload with mock URLs
+    // In production, this would integrate with the file upload system
+    const mockPhotoUrls = [
+      'https://example.com/quality-photo-1.jpg',
+      'https://example.com/quality-photo-2.jpg'
+    ];
+    uploadQualityPhotosMutation.mutate({ jobId, photoUrls: mockPhotoUrls });
+  };
+
+  const getQualityScoreColor = (score: number) => {
+    if (score >= 90) return 'text-green-600';
+    if (score >= 80) return 'text-blue-600';
+    if (score >= 70) return 'text-yellow-600';
+    if (score >= 60) return 'text-orange-600';
+    return 'text-red-600';
+  };
+
+  const getQualityScoreIcon = (score: number) => {
+    if (score >= 90) return CheckCircle2;
+    if (score >= 80) return Star;
+    if (score >= 70) return Eye;
+    if (score >= 60) return AlertTriangle;
+    return TrendingDown;
+  };
+
+  const renderQualityAnalysis = (job: any) => {
+    const hasQualityPhotos = job.qualityPhotos && Array.isArray(job.qualityPhotos) && job.qualityPhotos.length > 0;
+    const hasQualityScore = job.qualityScore !== null && job.qualityScore !== undefined;
+    const qualityScore = hasQualityScore ? parseFloat(job.qualityScore) : null;
+    
+    if (job.status !== 'completed') {
+      return null;
+    }
+
+    return (
+      <div className="mt-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <h5 className="text-sm font-medium text-muted-foreground">Quality Control</h5>
+          {hasQualityScore && (
+            <div className="flex items-center space-x-2">
+              <Brain className="w-4 h-4 text-blue-600" />
+              <span className="text-sm text-muted-foreground">AI Analyzed</span>
+            </div>
+          )}
+        </div>
+        
+        {hasQualityScore && qualityScore !== null && (
+          <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center space-x-2">
+              {(() => {
+                const ScoreIcon = getQualityScoreIcon(qualityScore);
+                return <ScoreIcon className={`w-5 h-5 ${getQualityScoreColor(qualityScore)}`} />;
+              })()}
+              <div>
+                <div className={`text-lg font-bold ${getQualityScoreColor(qualityScore)}`}>
+                  {qualityScore}/100
+                </div>
+                <div className="text-xs text-muted-foreground">Quality Score</div>
+              </div>
+            </div>
+            
+            {job.aiAnalysis && job.aiAnalysis.defects && (
+              <div className="text-right">
+                <div className="text-sm font-medium">
+                  {job.aiAnalysis.defects.length} Defects
+                </div>
+                <div className="text-xs text-muted-foreground">Detected</div>
+              </div>
+            )}
+          </div>
+        )}
+        
+        <div className="flex space-x-2">
+          {!hasQualityPhotos && (
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => handleUploadQualityPhotos(job.id)}
+              disabled={uploadQualityPhotosMutation.isPending}
+              data-testid={`button-upload-photos-${job.id}`}
+            >
+              <Camera className="w-4 h-4 mr-2" />
+              {uploadQualityPhotosMutation.isPending ? 'Uploading...' : 'Upload Photos'}
+            </Button>
+          )}
+          
+          {hasQualityPhotos && !hasQualityScore && (
+            <Button 
+              size="sm" 
+              onClick={() => handleAnalyzeQuality(job.id)}
+              disabled={analyzeQualityMutation.isPending}
+              data-testid={`button-analyze-quality-${job.id}`}
+            >
+              <Brain className="w-4 h-4 mr-2" />
+              {analyzeQualityMutation.isPending ? 'Analyzing...' : 'AI Analysis'}
+            </Button>
+          )}
+          
+          {hasQualityPhotos && (
+            <Button 
+              size="sm" 
+              variant="outline"
+              data-testid={`button-view-photos-${job.id}`}
+            >
+              <Eye className="w-4 h-4 mr-2" />
+              View Photos ({job.qualityPhotos.length})
+            </Button>
+          )}
+        </div>
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -380,6 +569,9 @@ export default function Dashboard() {
                             )}
                           </div>
                         </div>
+                        
+                        {/* Quality Analysis Component */}
+                        {renderQualityAnalysis(job)}
                       </CardContent>
                     </Card>
                   );

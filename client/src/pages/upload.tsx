@@ -100,8 +100,12 @@ export default function UploadPage() {
   };
 
   const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
+    console.log("Upload complete result:", result);
     if (result.successful && result.successful.length > 0) {
       const uploadedFile = result.successful[0];
+      console.log("Uploaded file:", uploadedFile);
+      console.log("Upload URL:", uploadedFile.uploadURL);
+      
       setStlUrl(uploadedFile.uploadURL as string);
       
       // Set file name if not already set
@@ -111,9 +115,12 @@ export default function UploadPage() {
 
       try {
         // Set ACL policy for the uploaded file
-        await apiRequest("PUT", "/api/stl-files", {
+        console.log("Setting ACL policy for:", uploadedFile.uploadURL);
+        const response = await apiRequest("PUT", "/api/stl-files", {
           stlFileURL: uploadedFile.uploadURL
         });
+        const aclData = await response.json();
+        console.log("ACL response:", aclData);
         
         toast({
           title: "File Uploaded",
@@ -304,6 +311,14 @@ export default function UploadPage() {
               className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
               size="lg"
               data-testid="button-submit-job"
+              onMouseEnter={() => {
+                console.log("Submit button state:", {
+                  stlUrl,
+                  material: formData.material,
+                  isPending: createJobMutation.isPending,
+                  disabled: !stlUrl || !formData.material || createJobMutation.isPending
+                });
+              }}
             >
               {createJobMutation.isPending ? (
                 <>
