@@ -170,7 +170,7 @@ export default function UploadPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <div className="industrial-spinner-lg text-primary"></div>
       </div>
     );
   }
@@ -227,7 +227,7 @@ export default function UploadPage() {
                       onComplete={handleUploadComplete}
                       buttonClassName="w-full"
                     >
-                      <div className="flex items-center justify-center space-x-2 p-4 border-2 border-dashed border-border rounded-lg hover:border-primary transition-colors">
+                      <div className="flex items-center justify-center space-x-2 p-4 border-2 border-dashed border-border hover:border-primary transition-colors industrial-card">
                         <Upload className="w-5 h-5" />
                         <span>{stlUrl ? "File Uploaded - Click to Replace" : "Click to Upload STL File"}</span>
                       </div>
@@ -301,13 +301,13 @@ export default function UploadPage() {
             <Button
               onClick={handleSubmit}
               disabled={!stlUrl || !formData.material || createJobMutation.isPending}
-              className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
+              className="w-full industrial-button"
               size="lg"
               data-testid="button-submit-job"
             >
               {createJobMutation.isPending ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  <div className="industrial-spinner-sm text-white mr-2"></div>
                   Creating Job...
                 </>
               ) : (

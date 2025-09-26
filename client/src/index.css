@@ -122,19 +122,27 @@
     @apply text-2xl font-bold;
   }
   
+  /* Override all rounded corners with hard edges */
+  * {
+    border-radius: 0 !important;
+  }
+  
   /* Button base styles with hard edges */
   button {
-    @apply rounded-none font-medium;
+    @apply font-medium;
+    border-radius: 0 !important;
   }
   
   /* Input base styles */
   input, textarea, select {
-    @apply rounded-none border-2 font-medium;
+    @apply border-2 font-medium;
+    border-radius: 0 !important;
   }
   
-  /* Card base styles */
-  .card {
-    @apply rounded-none shadow-md;
+  /* Card and container base styles */
+  .card, [role="dialog"] {
+    border-radius: 0 !important;
+    @apply shadow-md;
   }
 }
 
@@ -150,14 +158,17 @@
   }
 
   .industrial-button {
-    @apply bg-primary text-primary-foreground font-bold py-3 px-6 uppercase tracking-wide transition-all duration-200 hover:bg-primary/90 active:bg-primary/80;
+    @apply bg-primary text-primary-foreground font-bold py-3 px-6 uppercase tracking-wide transition-all duration-200;
     border: none;
-    box-shadow: 0px 2px 4px hsl(0 0% 0% / 0.1);
+    box-shadow: none;
   }
 
   .industrial-button:hover {
-    box-shadow: 0px 4px 8px hsl(0 0% 0% / 0.15);
-    transform: translateY(-1px);
+    background-color: hsl(22 100% 45%);
+  }
+
+  .industrial-button:active {
+    background-color: hsl(22 100% 40%);
   }
 
   .industrial-input {
@@ -197,5 +208,62 @@
       opacity: 1; 
       transform: translateX(0); 
     }
+  }
+  
+  /* Industrial loading spinner with hard edges */
+  .industrial-spinner {
+    display: inline-block;
+    position: relative;
+    width: 32px;
+    height: 32px;
+  }
+  
+  .industrial-spinner::before,
+  .industrial-spinner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 3px solid transparent;
+    border-top: 3px solid currentColor;
+    border-right: 3px solid currentColor;
+    animation: industrialSpin 1s linear infinite;
+  }
+  
+  .industrial-spinner::after {
+    border-top: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-bottom: 3px solid currentColor;
+    border-left: 3px solid currentColor;
+    animation-delay: 0.5s;
+  }
+  
+  @keyframes industrialSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  /* Small variant */
+  .industrial-spinner-sm {
+    width: 16px;
+    height: 16px;
+  }
+  
+  .industrial-spinner-sm::before,
+  .industrial-spinner-sm::after {
+    border-width: 2px;
+  }
+  
+  /* Large variant */
+  .industrial-spinner-lg {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .industrial-spinner-lg::before,
+  .industrial-spinner-lg::after {
+    border-width: 4px;
   }
 }

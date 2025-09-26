@@ -32,7 +32,7 @@ export default function Home() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+        <div className="industrial-spinner-lg text-primary"></div>
       </div>
     );
   }
@@ -70,10 +70,10 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Quick Actions */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card className="industrial-card hover:shadow-xl transition-shadow">
             <CardContent className="p-8">
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-primary/10 text-primary rounded-xl flex items-center justify-center">
+                <div className="w-16 h-16 bg-primary/10 text-primary flex items-center justify-center border-2 border-primary/20">
                   <Upload className="w-8 h-8" />
                 </div>
                 <div className="flex-1">
@@ -81,7 +81,7 @@ export default function Home() {
                   <p className="text-muted-foreground mb-4">
                     Upload your STL file and get matched with local 3D printer owners.
                   </p>
-                  <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+                  <Button asChild className="industrial-button">
                     <Link href="/upload" data-testid="button-upload-stl">
                       <Upload className="w-4 h-4 mr-2" />
                       Upload STL File
@@ -92,10 +92,10 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow">
+          <Card className="industrial-card hover:shadow-xl transition-shadow">
             <CardContent className="p-8">
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-accent/10 text-accent rounded-xl flex items-center justify-center">
+                <div className="w-16 h-16 bg-accent/10 text-accent flex items-center justify-center border-2 border-accent/20">
                   <Printer className="w-8 h-8" />
                 </div>
                 <div className="flex-1">
