@@ -17,7 +17,7 @@ import {
   Star
 } from "lucide-react";
 import { Link } from "wouter";
-import davidBustImage from "@assets/stock_images/david_bust_head_scul_ba698286.jpg";
+import davidBustImage from "@assets/IMG_1885_1758903951288.jpeg";
 
 export default function Landing() {
   return (
