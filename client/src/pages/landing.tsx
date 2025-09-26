@@ -102,10 +102,15 @@ export default function Landing() {
             <div className="relative">
               <Card className="bg-white/10 border-white/20 backdrop-blur-sm animate-float">
                 <CardContent className="p-16">
-                  {/* Simple PoH Logo */}
+                  {/* Thinking Man Image */}
                   <div className="flex items-center justify-center">
-                    <div className="text-8xl font-bold text-black bg-white rounded-xl px-12 py-8 shadow-2xl">
-                      PoH
+                    <div className="relative overflow-hidden rounded-2xl shadow-2xl">
+                      <img 
+                        src="/attached_assets/thinking_man_1758912781823.jpg"
+                        alt="3D Printed Thinking Man Sculpture"
+                        className="w-80 h-80 object-cover object-center"
+                        data-testid="img-thinking-man"
+                      />
                     </div>
                   </div>
                 </CardContent>
