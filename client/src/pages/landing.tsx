@@ -18,8 +18,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { STLViewer } from "@/components/STLViewer";
-// Use a working STL file that's properly served
-const astronautStl = "https://threejs.org/examples/models/stl/ascii/slotted_disk.stl";
+import thinkingManImage from "@assets/thinking_man_1758912781823.jpg";
 
 export default function Landing() {
   return (
@@ -106,7 +105,7 @@ export default function Landing() {
                   <div className="flex items-center justify-center">
                     <div className="relative overflow-hidden rounded-2xl shadow-2xl">
                       <img 
-                        src="/attached_assets/thinking_man_1758912781823.jpg"
+                        src={thinkingManImage}
                         alt="3D Printed Thinking Man Sculpture"
                         className="w-80 h-80 object-cover object-center"
                         data-testid="img-thinking-man"
