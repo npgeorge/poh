@@ -57,7 +57,7 @@ export default function Landing() {
             <div className="animate-fade-in">
               
               <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                Creators, meet the
+                Builders, meet the
                 <span className="text-primary"> 3D Printing Machine Economy</span>
               </h1>
               
