@@ -101,41 +101,11 @@ export default function Landing() {
             
             <div className="relative">
               <Card className="bg-white/10 border-white/20 backdrop-blur-sm animate-float">
-                <CardContent className="p-0">
-                  
-                  {/* Split Layout */}
-                  <div className="flex h-80 border border-white/10 rounded-lg overflow-hidden">
-                    {/* Left Side - STL Viewer */}
-                    <div className="w-1/2 bg-gray-900 flex items-center justify-center">
-                      <STLViewer 
-                        stlUrl={astronautStl}
-                        className="w-full h-full"
-                      />
-                    </div>
-                    
-                    {/* Vertical Divider */}
-                    <div className="w-0.5 bg-white/30"></div>
-                    
-                    {/* Right Side - Material Tiles */}
-                    <div className="w-1/2 p-12 flex flex-col justify-center">
-                      <div className="grid grid-cols-1 gap-8">
-                        <div className="bg-white/5 rounded-lg p-6 border border-white/10">
-                          <div className="text-primary font-medium text-base mb-2">Material</div>
-                          <div className="text-gray-300 text-xl">PLA Plastic</div>
-                        </div>
-                        <div className="bg-white/5 rounded-lg p-6 border border-white/10">
-                          <div className="text-primary font-medium text-base mb-2">Weight</div>
-                          <div className="text-gray-300 text-xl">45.2g</div>
-                        </div>
-                        <div className="bg-white/5 rounded-lg p-6 border border-white/10">
-                          <div className="text-primary font-medium text-base mb-2">Print Time</div>
-                          <div className="text-gray-300 text-xl">2h 15m</div>
-                        </div>
-                        <div className="bg-white/5 rounded-lg p-6 border border-white/10">
-                          <div className="text-primary font-medium text-base mb-2">Cost</div>
-                          <div className="text-gray-300 text-xl">$12.50</div>
-                        </div>
-                      </div>
+                <CardContent className="p-16">
+                  {/* Simple PoH Logo */}
+                  <div className="flex items-center justify-center">
+                    <div className="text-8xl font-bold text-black bg-white rounded-xl px-12 py-8 shadow-2xl">
+                      PoH
                     </div>
                   </div>
                 </CardContent>
