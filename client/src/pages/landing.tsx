@@ -18,8 +18,8 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { STLViewer } from "@/components/STLViewer";
-// Import STL file as URL  
-const astronautStl = "/attached_assets/astronot_1758904793307.stl";
+// Use a working STL file that's properly served
+const astronautStl = "https://threejs.org/examples/models/stl/ascii/slotted_disk.stl";
 
 export default function Landing() {
   return (
@@ -102,13 +102,9 @@ export default function Landing() {
             <div className="relative">
               <Card className="bg-white/10 border-white/20 backdrop-blur-sm animate-float">
                 <CardContent className="p-0">
-                  {/* Header */}
-                  <div className="text-center p-6 pb-4">
-                    <h3 className="text-lg font-semibold mb-2">3D Model Preview</h3>
-                  </div>
                   
                   {/* Split Layout */}
-                  <div className="flex h-96 border border-white/10 rounded-lg overflow-hidden">
+                  <div className="flex h-80 border border-white/10 rounded-lg overflow-hidden">
                     {/* Left Side - STL Viewer */}
                     <div className="w-1/2 bg-gray-900 flex items-center justify-center">
                       <STLViewer 
