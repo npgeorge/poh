@@ -103,11 +103,11 @@ export default function Landing() {
                 <CardContent className="p-16">
                   {/* Thinking Man Image */}
                   <div className="flex items-center justify-center">
-                    <div className="relative overflow-hidden rounded-lg shadow-2xl">
+                    <div className="relative overflow-hidden shadow-2xl">
                       <img 
                         src={newImage}
                         alt="3D Printed Sculpture"
-                        className="w-80 h-auto object-contain"
+                        className="w-80 h-auto object-contain chamfered"
                         data-testid="img-sculpture"
                       />
                     </div>

@@ -5,6 +5,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Chamfered corners utility */
+.chamfered {
+  --chamfer: 12px;
+  clip-path: polygon(
+    var(--chamfer) 0%, 
+    calc(100% - var(--chamfer)) 0%, 
+    100% var(--chamfer), 
+    100% calc(100% - var(--chamfer)), 
+    calc(100% - var(--chamfer)) 100%, 
+    var(--chamfer) 100%, 
+    0% calc(100% - var(--chamfer)), 
+    0% var(--chamfer)
+  );
+}
+
 
 :root {
   /* Industrial color palette: black text, orange highlights, white/gray */
