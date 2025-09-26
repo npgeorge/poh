@@ -17,6 +17,7 @@ import {
   Star
 } from "lucide-react";
 import { Link } from "wouter";
+import davidBustImage from "@assets/stock_images/isometric_rendered_b_f1c9f34a.jpg";
 
 export default function Landing() {
   return (
@@ -100,8 +101,12 @@ export default function Landing() {
               <Card className="bg-white/10 border-white/20 backdrop-blur-sm animate-float">
                 <CardContent className="p-8">
                   <div className="text-center mb-6">
-                    <div className="w-32 h-32 mx-auto bg-primary/20 rounded-xl flex items-center justify-center mb-4">
-                      <Box className="text-primary text-5xl" />
+                    <div className="w-32 h-32 mx-auto bg-primary/20 rounded-xl overflow-hidden mb-4">
+                      <img 
+                        src={davidBustImage} 
+                        alt="David bust 3D model preview" 
+                        className="w-full h-full object-cover"
+                      />
                     </div>
                     <h3 className="text-lg font-semibold mb-2">3D Model Preview</h3>
                     <p className="text-sm text-gray-300">STL files rendered with Three.js</p>
