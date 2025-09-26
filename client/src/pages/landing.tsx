@@ -18,8 +18,8 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { STLViewer } from "@/components/STLViewer";
-// Import STL file as URL
-const astronautStl = "/assets/astronot_1758904793307.stl";
+// Import STL file as URL  
+const astronautStl = "/attached_assets/astronot_1758904793307.stl";
 
 export default function Landing() {
   return (
@@ -105,7 +105,6 @@ export default function Landing() {
                   {/* Header */}
                   <div className="text-center p-6 pb-4">
                     <h3 className="text-lg font-semibold mb-2">3D Model Preview</h3>
-                    <p className="text-sm text-gray-300">STL files rendered with Three.js</p>
                   </div>
                   
                   {/* Split Layout */}
@@ -122,23 +121,23 @@ export default function Landing() {
                     <div className="w-0.5 bg-white/30"></div>
                     
                     {/* Right Side - Material Tiles */}
-                    <div className="w-1/2 p-8 flex flex-col justify-center">
-                      <div className="grid grid-cols-1 gap-6">
-                        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                          <div className="text-primary font-medium text-sm mb-1">Material</div>
-                          <div className="text-gray-300 text-lg">PLA Plastic</div>
+                    <div className="w-1/2 p-12 flex flex-col justify-center">
+                      <div className="grid grid-cols-1 gap-8">
+                        <div className="bg-white/5 rounded-lg p-6 border border-white/10">
+                          <div className="text-primary font-medium text-base mb-2">Material</div>
+                          <div className="text-gray-300 text-xl">PLA Plastic</div>
                         </div>
-                        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                          <div className="text-primary font-medium text-sm mb-1">Weight</div>
-                          <div className="text-gray-300 text-lg">45.2g</div>
+                        <div className="bg-white/5 rounded-lg p-6 border border-white/10">
+                          <div className="text-primary font-medium text-base mb-2">Weight</div>
+                          <div className="text-gray-300 text-xl">45.2g</div>
                         </div>
-                        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                          <div className="text-primary font-medium text-sm mb-1">Print Time</div>
-                          <div className="text-gray-300 text-lg">2h 15m</div>
+                        <div className="bg-white/5 rounded-lg p-6 border border-white/10">
+                          <div className="text-primary font-medium text-base mb-2">Print Time</div>
+                          <div className="text-gray-300 text-xl">2h 15m</div>
                         </div>
-                        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                          <div className="text-primary font-medium text-sm mb-1">Cost</div>
-                          <div className="text-gray-300 text-lg">$12.50</div>
+                        <div className="bg-white/5 rounded-lg p-6 border border-white/10">
+                          <div className="text-primary font-medium text-base mb-2">Cost</div>
+                          <div className="text-gray-300 text-xl">$12.50</div>
                         </div>
                       </div>
                     </div>
