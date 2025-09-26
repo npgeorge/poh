@@ -9,13 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { ObjectUploader } from "@/components/ObjectUploader";
 import { STLViewer } from "@/components/STLViewer";
 import { Upload, Box, Zap, ArrowLeft, Printer } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import type { UploadResult } from '@uppy/core';
 
 export default function UploadPage() {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -85,48 +83,74 @@ export default function UploadPage() {
     },
   });
 
-  const handleGetUploadParameters = async () => {
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 50 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select a file smaller than 50MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!file.name.toLowerCase().endsWith('.stl')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an STL file.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setStlFile(file);
+    
+    // Set file name if not already set
+    if (!formData.fileName) {
+      setFormData(prev => ({ ...prev, fileName: file.name.replace('.stl', '') }));
+    }
+
     try {
+      // Get upload parameters
       const response = await apiRequest("POST", "/api/objects/upload", {});
       const data = await response.json();
-      return {
-        method: 'PUT' as const,
-        url: data.uploadURL,
-      };
-    } catch (error) {
-      console.error("Error getting upload parameters:", error);
-      throw error;
-    }
-  };
-
-  const handleUploadComplete = async (result: UploadResult<Record<string, unknown>, Record<string, unknown>>) => {
-    if (result.successful && result.successful.length > 0) {
-      const uploadedFile = result.successful[0];
-      setStlUrl(uploadedFile.uploadURL as string);
       
-      // Set file name if not already set
-      if (!formData.fileName && uploadedFile.name) {
-        setFormData(prev => ({ ...prev, fileName: uploadedFile.name as string }));
+      // Upload file directly
+      const uploadResponse = await fetch(data.uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': 'application/octet-stream',
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error('Upload failed');
       }
 
-      try {
-        // Set ACL policy for the uploaded file
-        await apiRequest("PUT", "/api/stl-files", {
-          stlFileURL: uploadedFile.uploadURL
-        });
-        
-        toast({
-          title: "File Uploaded",
-          description: "Your STL file has been uploaded successfully.",
-        });
-      } catch (error) {
-        console.error("Error setting file ACL:", error);
-        toast({
-          title: "Upload Warning",
-          description: "File uploaded but failed to set permissions.",
-          variant: "destructive",
-        });
-      }
+      // Set ACL policy for the uploaded file
+      await apiRequest("PUT", "/api/stl-files", {
+        stlFileURL: data.uploadURL
+      });
+      
+      // Set the URL after ACL is set to trigger 3D viewer
+      setStlUrl(data.uploadURL);
+      
+      toast({
+        title: "File Uploaded",
+        description: "Your STL file has been uploaded successfully.",
+      });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      toast({
+        title: "Upload Error",
+        description: "Failed to upload your STL file. Please try again.",
+        variant: "destructive",
+      });
+      setStlFile(null);
     }
   };
 
@@ -220,25 +244,33 @@ export default function UploadPage() {
                 <div>
                   <Label>STL File</Label>
                   <div className="mt-2">
-                    <ObjectUploader
-                      maxNumberOfFiles={1}
-                      maxFileSize={50 * 1024 * 1024} // 50MB
-                      onGetUploadParameters={handleGetUploadParameters}
-                      onComplete={handleUploadComplete}
-                      buttonClassName="w-full"
-                    >
-                      <div className="flex items-center justify-center space-x-2 p-4 border-2 border-dashed border-border hover:border-primary transition-colors industrial-card">
-                        <Upload className="w-5 h-5" />
-                        <span>{stlUrl ? "File Uploaded - Click to Replace" : "Click to Upload STL File"}</span>
+                    <div className="relative">
+                      <input
+                        type="file"
+                        accept=".stl"
+                        onChange={handleFileSelect}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        data-testid="input-stl-file"
+                      />
+                      <div className="flex items-center justify-center space-x-2 p-8 border-2 border-dashed border-primary/30 hover:border-primary bg-primary/5 hover:bg-primary/10 transition-colors cursor-pointer">
+                        <Upload className="w-6 h-6 text-primary" />
+                        <div className="text-center">
+                          <p className="font-medium text-foreground">
+                            {stlFile ? stlFile.name : "Click to upload STL file"}
+                          </p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Drop your files here or browse (max 50MB)
+                          </p>
+                        </div>
                       </div>
-                    </ObjectUploader>
+                    </div>
+                    {stlFile && (
+                      <p className="text-sm text-green-600 mt-2 flex items-center">
+                        <Box className="w-4 h-4 mr-1" />
+                        File selected: {(stlFile.size / 1024 / 1024).toFixed(1)} MB
+                      </p>
+                    )}
                   </div>
-                  {stlUrl && (
-                    <p className="text-sm text-green-600 mt-2 flex items-center">
-                      <Box className="w-4 h-4 mr-1" />
-                      STL file uploaded successfully
-                    </p>
-                  )}
                 </div>
 
                 <div>
@@ -330,10 +362,10 @@ export default function UploadPage() {
               </CardHeader>
               <CardContent>
                 <div className="bg-muted/50 rounded-lg min-h-[400px] flex items-center justify-center">
-                  {stlFile ? (
-                    <STLViewer stlFile={stlFile} />
-                  ) : stlUrl ? (
+                  {stlUrl ? (
                     <STLViewer stlUrl={stlUrl} />
+                  ) : stlFile ? (
+                    <STLViewer stlFile={stlFile} />
                   ) : (
                     <div className="text-center">
                       <Box className="w-16 h-16 text-muted-foreground mx-auto mb-4" />

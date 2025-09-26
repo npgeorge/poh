@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { STLLoader } from 'three/examples/jsm/loaders/STLLoader.js';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -15,31 +15,40 @@ export function STLViewer({ stlFile, stlUrl, className = '' }: STLViewerProps) {
   const rendererRef = useRef<THREE.WebGLRenderer>();
   const cameraRef = useRef<THREE.PerspectiveCamera>();
   const controlsRef = useRef<OrbitControls>();
+  const [webglError, setWebglError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
 
-    // Scene setup
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xf5f5f5);
-    sceneRef.current = scene;
+    try {
+      // Scene setup
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf5f5f5);
+      sceneRef.current = scene;
 
-    // Camera setup
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      mountRef.current.clientWidth / mountRef.current.clientHeight,
-      0.1,
-      1000
-    );
-    camera.position.set(0, 0, 100);
-    cameraRef.current = camera;
+      // Camera setup
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        mountRef.current.clientWidth / mountRef.current.clientHeight,
+        0.1,
+        1000
+      );
+      camera.position.set(0, 0, 100);
+      cameraRef.current = camera;
 
-    // Renderer setup
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    rendererRef.current = renderer;
+      // Renderer setup with error handling
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      
+      // Check if WebGL context was successfully created
+      const gl = renderer.getContext();
+      if (!gl || gl.isContextLost()) {
+        throw new Error('WebGL context could not be created or was lost');
+      }
+      
+      renderer.setSize(mountRef.current.clientWidth, mountRef.current.clientHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      rendererRef.current = renderer;
 
     // Controls setup
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -81,13 +90,18 @@ export function STLViewer({ stlFile, stlUrl, className = '' }: STLViewerProps) {
 
     window.addEventListener('resize', handleResize);
 
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      if (mountRef.current && renderer.domElement) {
-        mountRef.current.removeChild(renderer.domElement);
-      }
-      renderer.dispose();
-    };
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        if (mountRef.current && renderer.domElement) {
+          mountRef.current.removeChild(renderer.domElement);
+        }
+        renderer.dispose();
+      };
+    } catch (error) {
+      console.error('WebGL initialization failed:', error);
+      setWebglError('3D preview unavailable - WebGL not supported in this environment');
+      return () => {}; // Empty cleanup function
+    }
   }, []);
 
   useEffect(() => {
@@ -157,6 +171,26 @@ export function STLViewer({ stlFile, stlUrl, className = '' }: STLViewerProps) {
       loadSTL(stlUrl);
     }
   }, [stlFile, stlUrl]);
+
+  // Show error fallback if WebGL failed
+  if (webglError) {
+    return (
+      <div 
+        className={`w-full h-full min-h-[400px] rounded-lg overflow-hidden bg-muted/50 flex items-center justify-center ${className}`}
+        data-testid="stl-viewer-error"
+      >
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 text-muted-foreground">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+            </svg>
+          </div>
+          <p className="text-muted-foreground text-sm">{webglError}</p>
+          <p className="text-muted-foreground text-xs mt-2">File uploaded successfully</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 

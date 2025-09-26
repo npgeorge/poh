@@ -56,7 +56,7 @@ export const jobs = pgTable("jobs", {
   id: serial("id").primaryKey(),
   customerId: varchar("customer_id").references(() => users.id).notNull(),
   printerId: integer("printer_id").references(() => printers.id),
-  stlFileUrl: varchar("stl_file_url", { length: 255 }),
+  stlFileUrl: text("stl_file_url"),
   fileName: varchar("file_name", { length: 255 }),
   material: varchar("material", { length: 50 }),
   estimatedWeight: decimal("estimated_weight", { precision: 8, scale: 2 }),
@@ -226,6 +226,10 @@ export const insertJobSchema = createInsertSchema(jobs).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+}).extend({
+  estimatedWeight: z.number().or(z.string()).transform((val) => String(val)).optional(),
+  estimatedCost: z.number().or(z.string()).transform((val) => String(val)).optional(),
+  finalCost: z.number().or(z.string()).transform((val) => String(val)).optional(),
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
