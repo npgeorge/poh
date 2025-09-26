@@ -107,7 +107,7 @@ export default function Landing() {
                       <img 
                         src={newImage}
                         alt="3D Printed Sculpture"
-                        className="w-80 h-80 object-cover object-center"
+                        className="w-80 h-96 object-contain"
                         data-testid="img-sculpture"
                       />
                     </div>
