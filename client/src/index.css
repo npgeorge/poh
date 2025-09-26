@@ -4,6 +4,49 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Uppy styles for file upload */
+@import "@uppy/core/dist/style.css";
+@import "@uppy/dashboard/dist/style.css";
+
+/* Industrial styling for Uppy upload modal */
+.uppy-DashboardModal-overlay {
+  background-color: hsl(0 0% 0% / 0.5) !important;
+}
+
+.uppy-Dashboard-inner {
+  background-color: hsl(0 0% 100%) !important;
+  border-radius: 0 !important;
+  border: 2px solid hsl(0 0% 85%) !important;
+}
+
+.uppy-DashboardAddFiles {
+  border-radius: 0 !important;
+  border: 2px dashed hsl(22 100% 50%) !important;
+  background-color: hsl(22 100% 50% / 0.05) !important;
+}
+
+.uppy-DashboardAddFiles:hover {
+  border-color: hsl(22 100% 45%) !important;
+  background-color: hsl(22 100% 50% / 0.1) !important;
+}
+
+.uppy-c-btn {
+  border-radius: 0 !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.025em !important;
+}
+
+.uppy-c-btn--primary {
+  background-color: hsl(22 100% 50%) !important;
+  color: white !important;
+  border: none !important;
+}
+
+.uppy-c-btn--primary:hover {
+  background-color: hsl(22 100% 45%) !important;
+}
+
 :root {
   /* Industrial color palette: black text, orange highlights, white/gray */
   --background: hsl(0 0% 100%);
