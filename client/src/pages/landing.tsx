@@ -29,13 +29,13 @@ export default function Landing() {
               <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
                 <Box className="text-primary-foreground text-lg" />
               </div>
-              <div className="text-xl font-bold">Proof of Hardware</div>
+              <div className="text-xl font-bold text-white">Proof of Hardware</div>
             </div>
             
             <div className="hidden md:flex items-center space-x-8">
-              <a href="#how-it-works" className="text-muted-foreground hover:text-foreground transition-colors">How it Works</a>
-              <a href="#features" className="text-muted-foreground hover:text-foreground transition-colors">Features</a>
-              <a href="#pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</a>
+              <a href="#how-it-works" className="text-gray-200 hover:text-white transition-colors">How it Works</a>
+              <a href="#features" className="text-gray-200 hover:text-white transition-colors">Features</a>
+              <a href="#pricing" className="text-gray-200 hover:text-white transition-colors">Pricing</a>
               <Button asChild variant="secondary">
                 <a href="/api/login" data-testid="button-signin">Sign In</a>
               </Button>
@@ -55,20 +55,14 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="animate-fade-in">
-              <div className="flex items-center space-x-2 mb-6">
-                <Badge className="bg-bitcoin/20 text-bitcoin border-bitcoin/30">
-                  <Zap className="w-3 h-3 mr-1" />
-                  Lightning Powered
-                </Badge>
-              </div>
               
               <h1 className="text-5xl lg:text-6xl font-bold leading-tight mb-6">
-                Global 3D Printing
-                <span className="text-bitcoin"> Marketplace</span>
+                Creators, meet the
+                <span className="text-primary"> 3D Printing Machine Economy</span>
               </h1>
               
               <p className="text-xl text-gray-200 mb-8 leading-relaxed">
-                Upload your STL file, get matched with local 3D printer owners, pay with Lightning Bitcoin, and receive quality-assured parts delivered to your door.
+                Upload your design for an Instant Quote, match with local 3D Printer Owners, and receive AI Quality-Assured parts delivered to your door.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4">
@@ -92,8 +86,8 @@ export default function Landing() {
                   <span>AI Quality Control</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Zap className="w-4 h-4 text-bitcoin" />
-                  <span>Lightning Fast Payments</span>
+                  <TrendingUp className="w-4 h-4 text-primary" />
+                  <span>AI Competitive Pricing</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Globe className="w-4 h-4 text-accent" />
@@ -115,31 +109,31 @@ export default function Landing() {
                   
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div className="bg-white/5 rounded-lg p-3">
-                      <div className="text-bitcoin font-medium">Material</div>
+                      <div className="text-primary font-medium">Material</div>
                       <div className="text-gray-300">PLA Plastic</div>
                     </div>
                     <div className="bg-white/5 rounded-lg p-3">
-                      <div className="text-bitcoin font-medium">Weight</div>
+                      <div className="text-primary font-medium">Weight</div>
                       <div className="text-gray-300">45.2g</div>
                     </div>
                     <div className="bg-white/5 rounded-lg p-3">
-                      <div className="text-bitcoin font-medium">Print Time</div>
+                      <div className="text-primary font-medium">Print Time</div>
                       <div className="text-gray-300">2h 15m</div>
                     </div>
                     <div className="bg-white/5 rounded-lg p-3">
-                      <div className="text-bitcoin font-medium">Cost</div>
-                      <div className="text-gray-300">1,250 sats</div>
+                      <div className="text-primary font-medium">Cost</div>
+                      <div className="text-gray-300">$12.50</div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
               
-              <div className="absolute -bottom-4 -right-4 bg-bitcoin text-primary-foreground rounded-xl p-4 shadow-lg">
+              <div className="absolute -bottom-4 -right-4 bg-primary text-primary-foreground rounded-xl p-4 shadow-lg">
                 <div className="flex items-center space-x-2">
-                  <Zap className="w-6 h-6" />
+                  <Shield className="w-6 h-6" />
                   <div>
-                    <div className="font-semibold">Lightning Pay</div>
-                    <div className="text-sm opacity-90">Instant Settlement</div>
+                    <div className="font-semibold">AI Quality</div>
+                    <div className="text-sm opacity-90">Guaranteed</div>
                   </div>
                 </div>
               </div>
@@ -154,7 +148,7 @@ export default function Landing() {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold mb-4">How Proof of Hardware Works</h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              A seamless process from design to delivery, powered by Bitcoin Lightning Network for instant global payments.
+              A seamless process from design to delivery, thanks to your local makers.
             </p>
           </div>
           
@@ -181,9 +175,9 @@ export default function Landing() {
               <div className="w-20 h-20 bg-bitcoin/10 text-bitcoin rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
                 <Zap className="w-8 h-8" />
               </div>
-              <Badge variant="secondary" className="bg-bitcoin/10 text-bitcoin mb-4">Step 3</Badge>
-              <h3 className="text-xl font-semibold mb-3">Lightning Escrow</h3>
-              <p className="text-muted-foreground">Pay instantly with Bitcoin Lightning. Funds held in escrow until quality verification is complete.</p>
+              <Badge variant="secondary" className="bg-primary/10 text-primary mb-4">Step 3</Badge>
+              <h3 className="text-xl font-semibold mb-3">Secure Payment</h3>
+              <p className="text-muted-foreground">AI-powered competitive pricing with secure escrow. Funds held until quality verification is complete.</p>
             </div>
             
             <div className="text-center group">
@@ -214,20 +208,20 @@ export default function Landing() {
                 <div className="w-12 h-12 bg-bitcoin/10 text-bitcoin rounded-xl flex items-center justify-center mb-6">
                   <Zap className="w-6 h-6" />
                 </div>
-                <h3 className="text-xl font-semibold mb-4">Lightning Payments</h3>
-                <p className="text-muted-foreground mb-4">Instant Bitcoin payments with minimal fees. No banks, no delays, no borders.</p>
+                <h3 className="text-xl font-semibold mb-4">AI Competitive Pricing</h3>
+                <p className="text-muted-foreground mb-4">Smart algorithms analyze market rates to ensure fair, competitive pricing for every job.</p>
                 <ul className="space-y-2 text-sm">
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Sub-second settlements</span>
+                    <span>Real-time market analysis</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>~1 sat transaction fees</span>
+                    <span>Transparent cost breakdown</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>Global accessibility</span>
+                    <span>Best value guarantee</span>
                   </li>
                 </ul>
               </CardContent>
@@ -367,7 +361,7 @@ export default function Landing() {
                 </div>
                 <h3 className="text-2xl font-bold mb-4">Need Something Printed?</h3>
                 <p className="text-gray-200 mb-6">
-                  Upload your STL file and get connected with verified 3D printer owners in your area. Pay with Bitcoin Lightning for fast, secure transactions.
+                  Upload your STL file and get connected with verified 3D printer owners in your area. Get instant quotes with AI-powered competitive pricing.
                 </p>
                 
                 <div className="space-y-3 mb-8">
@@ -385,7 +379,7 @@ export default function Landing() {
                   </div>
                   <div className="flex items-center space-x-3">
                     <CheckCircle className="w-5 h-5 text-green-400" />
-                    <span>Fast Lightning Bitcoin payments</span>
+                    <span>AI-powered instant quotes</span>
                   </div>
                 </div>
                 
@@ -405,7 +399,7 @@ export default function Landing() {
                 </div>
                 <h3 className="text-2xl font-bold mb-4">Own a 3D Printer?</h3>
                 <p className="text-gray-200 mb-6">
-                  Monetize your 3D printer by joining our global network. Set your rates, choose your jobs, and earn Bitcoin for every print.
+                  Monetize your 3D printer by joining our global machine economy. Set your rates, choose your jobs, and earn from every quality print.
                 </p>
                 
                 <div className="space-y-3 mb-8">
@@ -419,7 +413,7 @@ export default function Landing() {
                   </div>
                   <div className="flex items-center space-x-3">
                     <CheckCircle className="w-5 h-5 text-green-400" />
-                    <span>Instant Bitcoin payments via Lightning</span>
+                    <span>Instant payments upon AI quality approval</span>
                   </div>
                   <div className="flex items-center space-x-3">
                     <CheckCircle className="w-5 h-5 text-green-400" />
