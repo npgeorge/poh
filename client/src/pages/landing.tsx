@@ -17,7 +17,9 @@ import {
   Star
 } from "lucide-react";
 import { Link } from "wouter";
-import davidBustImage from "@assets/IMG_1885_1758904117221.jpg";
+import { STLViewer } from "@/components/STLViewer";
+// Import STL file as URL
+const astronautStl = "/src/assets/astronot_1758904793307.stl";
 
 export default function Landing() {
   return (
@@ -99,35 +101,44 @@ export default function Landing() {
             
             <div className="relative">
               <Card className="bg-white/10 border-white/20 backdrop-blur-sm animate-float">
-                <CardContent className="p-8">
-                  <div className="text-center mb-6">
-                    <div className="w-32 h-32 mx-auto bg-primary/20 rounded-xl overflow-hidden mb-4">
-                      <img 
-                        src={davidBustImage} 
-                        alt="David bust 3D model preview" 
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                <CardContent className="p-0">
+                  {/* Header */}
+                  <div className="text-center p-6 pb-4">
                     <h3 className="text-lg font-semibold mb-2">3D Model Preview</h3>
                     <p className="text-sm text-gray-300">STL files rendered with Three.js</p>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div className="bg-white/5 rounded-lg p-3">
-                      <div className="text-primary font-medium">Material</div>
-                      <div className="text-gray-300">PLA Plastic</div>
+                  {/* Split Layout */}
+                  <div className="flex h-80">
+                    {/* Left Side - STL Viewer */}
+                    <div className="flex-1 bg-black/20 rounded-l-lg overflow-hidden">
+                      <STLViewer 
+                        stlUrl={astronautStl}
+                        className="w-full h-full"
+                      />
                     </div>
-                    <div className="bg-white/5 rounded-lg p-3">
-                      <div className="text-primary font-medium">Weight</div>
-                      <div className="text-gray-300">45.2g</div>
-                    </div>
-                    <div className="bg-white/5 rounded-lg p-3">
-                      <div className="text-primary font-medium">Print Time</div>
-                      <div className="text-gray-300">2h 15m</div>
-                    </div>
-                    <div className="bg-white/5 rounded-lg p-3">
-                      <div className="text-primary font-medium">Cost</div>
-                      <div className="text-gray-300">$12.50</div>
+                    
+                    {/* Vertical Divider */}
+                    <div className="w-px bg-white/20"></div>
+                    
+                    {/* Right Side - Material Tiles */}
+                    <div className="flex-1 p-6 flex flex-col justify-center space-y-4">
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <div className="text-primary font-medium">Material</div>
+                        <div className="text-gray-300">PLA Plastic</div>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <div className="text-primary font-medium">Weight</div>
+                        <div className="text-gray-300">45.2g</div>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <div className="text-primary font-medium">Print Time</div>
+                        <div className="text-gray-300">2h 15m</div>
+                      </div>
+                      <div className="bg-white/5 rounded-lg p-4">
+                        <div className="text-primary font-medium">Cost</div>
+                        <div className="text-gray-300">$12.50</div>
+                      </div>
                     </div>
                   </div>
                 </CardContent>
