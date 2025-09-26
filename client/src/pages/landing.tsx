@@ -17,7 +17,7 @@ import {
   Star
 } from "lucide-react";
 import { Link } from "wouter";
-import davidBustImage from "@assets/IMG_1885_1758903951288.jpeg";
+import davidBustImage from "@assets/IMG_1885_1758904117221.jpg";
 
 export default function Landing() {
   return (
