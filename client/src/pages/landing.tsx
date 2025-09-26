@@ -19,7 +19,7 @@ import {
 import { Link } from "wouter";
 import { STLViewer } from "@/components/STLViewer";
 // Import STL file as URL
-const astronautStl = "/src/assets/astronot_1758904793307.stl";
+const astronautStl = "/assets/astronot_1758904793307.stl";
 
 export default function Landing() {
   return (
@@ -109,9 +109,9 @@ export default function Landing() {
                   </div>
                   
                   {/* Split Layout */}
-                  <div className="flex h-80">
+                  <div className="flex h-96 border border-white/10 rounded-lg overflow-hidden">
                     {/* Left Side - STL Viewer */}
-                    <div className="flex-1 bg-black/20 rounded-l-lg overflow-hidden">
+                    <div className="w-1/2 bg-gray-900 flex items-center justify-center">
                       <STLViewer 
                         stlUrl={astronautStl}
                         className="w-full h-full"
@@ -119,25 +119,27 @@ export default function Landing() {
                     </div>
                     
                     {/* Vertical Divider */}
-                    <div className="w-px bg-white/20"></div>
+                    <div className="w-0.5 bg-white/30"></div>
                     
                     {/* Right Side - Material Tiles */}
-                    <div className="flex-1 p-6 flex flex-col justify-center space-y-4">
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <div className="text-primary font-medium">Material</div>
-                        <div className="text-gray-300">PLA Plastic</div>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <div className="text-primary font-medium">Weight</div>
-                        <div className="text-gray-300">45.2g</div>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <div className="text-primary font-medium">Print Time</div>
-                        <div className="text-gray-300">2h 15m</div>
-                      </div>
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <div className="text-primary font-medium">Cost</div>
-                        <div className="text-gray-300">$12.50</div>
+                    <div className="w-1/2 p-8 flex flex-col justify-center">
+                      <div className="grid grid-cols-1 gap-6">
+                        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                          <div className="text-primary font-medium text-sm mb-1">Material</div>
+                          <div className="text-gray-300 text-lg">PLA Plastic</div>
+                        </div>
+                        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                          <div className="text-primary font-medium text-sm mb-1">Weight</div>
+                          <div className="text-gray-300 text-lg">45.2g</div>
+                        </div>
+                        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                          <div className="text-primary font-medium text-sm mb-1">Print Time</div>
+                          <div className="text-gray-300 text-lg">2h 15m</div>
+                        </div>
+                        <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+                          <div className="text-primary font-medium text-sm mb-1">Cost</div>
+                          <div className="text-gray-300 text-lg">$12.50</div>
+                        </div>
                       </div>
                     </div>
                   </div>
