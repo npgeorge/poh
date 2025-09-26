@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { STLViewer } from "@/components/STLViewer";
-import newImage from "@assets/IMG_2995_1758919861954.jpeg";
+import newImage from "@assets/IMG_2996_1758920535706.jpeg";
 
 export default function Landing() {
   return (
@@ -103,11 +103,11 @@ export default function Landing() {
                 <CardContent className="p-16">
                   {/* Thinking Man Image */}
                   <div className="flex items-center justify-center">
-                    <div className="relative overflow-hidden rounded-2xl shadow-2xl">
+                    <div className="relative overflow-hidden rounded-lg shadow-2xl">
                       <img 
                         src={newImage}
                         alt="3D Printed Sculpture"
-                        className="w-80 h-96 object-contain"
+                        className="w-80 h-auto object-contain"
                         data-testid="img-sculpture"
                       />
                     </div>
