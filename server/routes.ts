@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated, requireRole } from "./replitAuth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { insertPrinterSchema, insertJobSchema } from "@shared/schema";
@@ -144,7 +144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Printer routes
-  app.post("/api/printers", isAuthenticated, async (req: any, res) => {
+  app.post("/api/printers", isAuthenticated, requireRole('printer_owner'), async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
       const printerData = insertPrinterSchema.parse({
@@ -210,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/printers/my", isAuthenticated, async (req: any, res) => {
+  app.get("/api/printers/my", isAuthenticated, requireRole('printer_owner'), async (req: any, res) => {
     try {
       const userId = req.user?.claims?.sub;
       const printers = await storage.getPrintersByUserId(userId);

@@ -155,3 +155,24 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
     return;
   }
 };
+
+// Role-based access control middleware
+export const requireRole = (role: 'customer' | 'printer_owner'): RequestHandler => {
+  return async (req, res, next) => {
+    const userId = (req.user as any)?.claims?.sub;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+      const user = await storage.getUser(userId);
+      if (!user || !user.roles.includes(role)) {
+        return res.status(403).json({ message: `Access denied. ${role} role required.` });
+      }
+      next();
+    } catch (error) {
+      console.error("Error checking user role:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  };
+};
