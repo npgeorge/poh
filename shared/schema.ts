@@ -10,10 +10,14 @@ import {
   serial,
   integer,
   boolean,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
+
+// User role enum
+export const userRoleEnum = pgEnum('user_role', ['customer', 'printer_owner']);
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -33,10 +37,16 @@ export const users = pgTable("users", {
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
-  userType: varchar("user_type", { length: 50 }).default('customer'), // 'printer' or 'customer'
+  roles: userRoleEnum("roles").array().notNull().default(sql`ARRAY['customer']::user_role[]`), // Array of 'customer' and/or 'printer_owner'
+  currentRole: userRoleEnum("current_role").notNull().default('customer'), // Active role in current session
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
-});
+}, (table) => [
+  // Ensure currentRole is one of the user's assigned roles
+  sql`CONSTRAINT current_role_in_roles CHECK (${table.currentRole} = ANY(${table.roles}))`,
+  // Add GIN index for efficient role-based queries
+  index("idx_users_roles").using('gin', table.roles),
+]);
 
 export const printers = pgTable("printers", {
   id: serial("id").primaryKey(),
