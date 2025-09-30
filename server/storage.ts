@@ -27,6 +27,7 @@ export interface IStorage {
   // User operations (required for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
+  updateUserRole(id: string, role: string): Promise<User>;
   
   // Printer operations
   createPrinter(printer: InsertPrinter): Promise<Printer>;
@@ -69,6 +70,15 @@ export class DatabaseStorage implements IStorage {
           updatedAt: new Date(),
         },
       })
+      .returning();
+    return user;
+  }
+
+  async updateUserRole(id: string, role: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ currentRole: role as 'customer' | 'printer_owner', updatedAt: new Date() })
+      .where(eq(users.id, id))
       .returning();
     return user;
   }
