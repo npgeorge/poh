@@ -1,8 +1,11 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import type { User } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export function useAuth() {
+  const [, setLocation] = useLocation();
+  
   const { data: user, isLoading } = useQuery<User>({
     queryKey: ["/api/auth/user"],
     retry: false,
@@ -10,14 +13,16 @@ export function useAuth() {
 
   const switchRoleMutation = useMutation({
     mutationFn: async (role: 'customer' | 'printer_owner') => {
-      return await apiRequest("/api/auth/switch-role", {
-        method: "POST",
-        body: JSON.stringify({ role }),
-        headers: { "Content-Type": "application/json" },
-      });
+      return await apiRequest("POST", "/api/auth/switch-role", { role });
     },
-    onSuccess: () => {
+    onSuccess: (_, role) => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      // Navigate to the appropriate dashboard
+      if (role === 'customer') {
+        setLocation('/customer/dashboard');
+      } else if (role === 'printer_owner') {
+        setLocation('/printer-owner/dashboard');
+      }
     },
   });
 
