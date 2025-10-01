@@ -42,7 +42,7 @@ export interface IStorage {
   getJobById(id: number): Promise<Job | undefined>;
   getJobsByCustomerId(customerId: string): Promise<Job[]>;
   getJobsByPrinterId(printerId: number): Promise<Job[]>;
-  updateJob(id: number, updates: Partial<InsertJob>): Promise<Job>;
+  updateJob(id: number, updates: Partial<Job>): Promise<Job>;
   getAllJobs(): Promise<Job[]>;
   
   // Notification operations
@@ -199,7 +199,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(jobs.createdAt));
   }
 
-  async updateJob(id: number, updates: Partial<InsertJob>): Promise<Job> {
+  async updateJob(id: number, updates: Partial<Job>): Promise<Job> {
     const [job] = await db
       .update(jobs)
       .set({

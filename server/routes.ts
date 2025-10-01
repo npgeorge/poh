@@ -80,7 +80,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ uploadURL });
   });
 
-  // Zaprite payment routes will be added here
+  // Zaprite payment routes
+  const { zapriteService } = await import("./zapriteService");
+
+  // Create Zaprite order for a job (called after job creation)
+  app.post("/api/jobs/:id/payment", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const job = await storage.getJobById(jobId);
+
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Verify user owns this job
+      const userId = req.user?.claims?.sub;
+      if (job.customerId !== userId) {
+        return res.status(403).json({ message: "Not authorized to pay for this job" });
+      }
+
+      // Check if payment already created
+      if (job.zapriteOrderId) {
+        return res.json({
+          orderId: job.zapriteOrderId,
+          checkoutUrl: job.checkoutUrl,
+          status: job.paymentStatus,
+        });
+      }
+
+      // Calculate amount (use estimatedCost or default)
+      const amountUSD = parseFloat(job.estimatedCost || "10.00");
+      const amountCents = Math.round(amountUSD * 100);
+
+      // Create Zaprite order
+      const order = await zapriteService.createOrder({
+        amount: amountCents,
+        currency: 'USD',
+        externalUniqId: jobId.toString(),
+        redirectUrl: `${req.protocol}://${req.hostname}/customer/dashboard`,
+        label: `3D Print Job #${jobId} - ${job.fileName || 'Print'}`,
+        metadata: {
+          jobId: jobId,
+          customerId: job.customerId,
+          fileName: job.fileName,
+        },
+      });
+
+      // Update job with payment info
+      await storage.updateJob(jobId, {
+        zapriteOrderId: order.id,
+        checkoutUrl: order.checkoutUrl,
+        paymentStatus: 'pending',
+      });
+
+      res.json({
+        orderId: order.id,
+        checkoutUrl: order.checkoutUrl,
+        status: 'pending',
+      });
+    } catch (error) {
+      console.error("Error creating Zaprite order:", error);
+      res.status(500).json({ message: "Failed to create payment order" });
+    }
+  });
+
+  // Zaprite webhook handler
+  // NOTE: For production, this route needs raw body middleware for proper signature verification
+  // Add before express.json(): app.use('/api/webhooks/zaprite', express.raw({ type: 'application/json' }))
+  app.post("/api/webhooks/zaprite", async (req, res) => {
+    try {
+      const signature = req.headers['x-zaprite-signature'] as string;
+      // TODO: Use raw body for signature verification when available
+      const payload = JSON.stringify(req.body);
+
+      // Verify webhook signature
+      // For development, set ZAPRITE_WEBHOOK_SECRET_BYPASS=true
+      if (!zapriteService.verifyWebhookSignature(payload, signature || '')) {
+        console.error("Invalid Zaprite webhook signature");
+        return res.status(401).json({ message: "Invalid signature" });
+      }
+
+      // Process webhook
+      const webhookData = zapriteService.processWebhook(req.body);
+      const jobId = parseInt(webhookData.jobId);
+
+      // Validate job ID
+      if (isNaN(jobId)) {
+        console.error("Invalid job ID in webhook:", webhookData.jobId);
+        return res.status(400).json({ message: "Invalid job ID" });
+      }
+
+      // Update job payment status based on event
+      let paymentStatus: 'pending' | 'paid' | 'expired' | 'refunded' = 'pending';
+      if (webhookData.event === 'order.paid') {
+        paymentStatus = 'paid';
+      } else if (webhookData.event === 'order.expired') {
+        paymentStatus = 'expired';
+      }
+
+      await storage.updateJob(jobId, {
+        paymentStatus: paymentStatus,
+      });
+
+      // If paid, update job status to matched (ready for printer assignment)
+      if (paymentStatus === 'paid') {
+        await storage.updateJob(jobId, {
+          status: 'matched',
+        });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error processing Zaprite webhook:", error);
+      res.status(500).json({ message: "Webhook processing failed" });
+    }
+  });
+
+  // Check payment status for a job
+  app.get("/api/jobs/:id/payment-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const job = await storage.getJobById(jobId);
+
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Verify user has access to this job
+      const userId = req.user?.claims?.sub;
+      const userHasAccess = job.customerId === userId || 
+        (job.printerId && await storage.getPrinterById(job.printerId).then(p => p?.userId === userId));
+
+      if (!userHasAccess) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      res.json({
+        paymentStatus: job.paymentStatus,
+        zapriteOrderId: job.zapriteOrderId,
+        checkoutUrl: job.checkoutUrl,
+      });
+    } catch (error) {
+      console.error("Error checking payment status:", error);
+      res.status(500).json({ message: "Failed to check payment status" });
+    }
+  });
 
   // Printer routes
   app.post("/api/printers", isAuthenticated, requireRole('printer_owner'), async (req: any, res) => {
