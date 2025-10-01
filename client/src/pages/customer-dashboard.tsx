@@ -2,9 +2,11 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Box, Clock, CheckCircle, Package, ArrowRight, User, LogOut } from "lucide-react";
+import { Upload, Box, Clock, CheckCircle, Package, ArrowRight, User, LogOut, CreditCard } from "lucide-react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import type { Job, Printer } from "@shared/schema";
 
 const JOB_STATUS_CONFIG = {
@@ -17,6 +19,7 @@ const JOB_STATUS_CONFIG = {
 
 export default function CustomerDashboard() {
   const { user, switchRole, isSwitchingRole } = useAuth();
+  const { toast } = useToast();
 
   const { data: myJobs = [], isLoading: jobsLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs/my"],
@@ -34,6 +37,35 @@ export default function CustomerDashboard() {
   const completedJobs = myJobs.filter((job) => job.status === 'completed');
 
   const canSwitchToPrinterOwner = user?.roles?.includes('printer_owner');
+
+  const resumePaymentMutation = useMutation({
+    mutationFn: async (jobId: number) => {
+      const response = await apiRequest("POST", `/api/jobs/${jobId}/payment`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.checkoutUrl) {
+        toast({
+          title: "Redirecting to Payment",
+          description: "Taking you to the checkout page...",
+        });
+        window.location.href = data.checkoutUrl;
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create payment link",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to resume payment. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   return (
     <div className="min-h-screen bg-white dark:bg-black">
@@ -189,6 +221,7 @@ export default function CustomerDashboard() {
                 {myJobs.slice(0, 5).map((job) => {
                   const statusConfig = JOB_STATUS_CONFIG[job.status as keyof typeof JOB_STATUS_CONFIG] || JOB_STATUS_CONFIG.pending;
                   const StatusIcon = statusConfig.icon;
+                  const needsPayment = ['pending', 'expired'].includes(job.paymentStatus || '') || (!job.paymentStatus && job.status === 'pending');
                   
                   return (
                     <div 
@@ -205,14 +238,33 @@ export default function CustomerDashboard() {
                           <p className="text-sm text-gray-600 dark:text-gray-400">
                             {job.createdAt ? new Date(job.createdAt).toLocaleDateString() : 'Date unknown'}
                           </p>
+                          {job.paymentStatus && (
+                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1" data-testid={`payment-status-${job.id}`}>
+                              Payment: {job.paymentStatus}
+                            </p>
+                          )}
                         </div>
                       </div>
-                      <Badge 
-                        className={`${statusConfig.color} text-white border-0`}
-                        data-testid={`order-status-${job.id}`}
-                      >
-                        {statusConfig.label}
-                      </Badge>
+                      <div className="flex items-center gap-3">
+                        {needsPayment && (
+                          <Button
+                            onClick={() => resumePaymentMutation.mutate(job.id)}
+                            disabled={resumePaymentMutation.isPending}
+                            className="bg-orange-500 hover:bg-orange-600 text-white border-0"
+                            size="sm"
+                            data-testid={`button-pay-${job.id}`}
+                          >
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            {resumePaymentMutation.isPending ? 'Loading...' : 'Pay Now'}
+                          </Button>
+                        )}
+                        <Badge 
+                          className={`${statusConfig.color} text-white border-0`}
+                          data-testid={`order-status-${job.id}`}
+                        >
+                          {statusConfig.label}
+                        </Badge>
+                      </div>
                     </div>
                   );
                 })}
