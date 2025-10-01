@@ -62,8 +62,38 @@ The application uses a modern full-stack TypeScript architecture with Express.js
 - **Google Cloud Storage** for object storage and file management
 
 ### Payment Integration
-- **Lightning Network** for Bitcoin micropayments (implementation planned with LNbits API)
-- Escrow payment system for secure transactions between customers and printer owners
+- **Zaprite** for unified fiat and Lightning Network payments with BTC discount functionality
+- Non-custodial payment processing at $25/month
+- Webhook-based payment confirmation (signature verification pending implementation)
+- Support for both traditional payment methods and Bitcoin Lightning Network
+- Escrow-style workflow: payment required before job matching with printer owners
+
+#### Zaprite Integration Details
+- **API Service**: `server/zapriteService.ts` handles order creation and webhook processing
+- **Payment Routes**:
+  - `POST /api/jobs/:id/payment` - Create or retrieve payment order (idempotent). Returns `{ orderId, checkoutUrl }`
+  - `POST /api/webhooks/zaprite` - Webhook handler for payment events (verification not yet implemented)
+  - `GET /api/jobs/:id/payment-status` - Check payment status. Returns `{ paymentStatus, zapriteOrderId, checkoutUrl }`
+- **Database Fields**: Jobs table includes `paymentStatus`, `zapriteOrderId`, `checkoutUrl`, `paymentMethod`
+- **Security**: 
+  - Server-controlled pricing (client cannot set amount)
+  - RBAC on payment routes (job ownership verified)
+  - **Webhook Security Status**: Signature verification NOT implemented. Webhook rejects requests (returns 401) unless `ZAPRITE_WEBHOOK_SECRET_BYPASS=true` is set. DO NOT expose webhook publicly without implementing verification.
+  - **Production TODO**: Implement HMAC-SHA256 signature verification with raw body middleware and x-zaprite-signature header validation
+- **Required Secrets**: 
+  - `ZAPRITE_API_KEY` - API authentication for order creation
+  - `ZAPRITE_WEBHOOK_SECRET` - For future HMAC signature verification (not yet used)
+  - `ZAPRITE_WEBHOOK_SECRET_BYPASS=true` - Development only: accepts webhooks without verification (NEVER use in production)
+
+#### Payment Flow
+1. Customer uploads STL and creates job (status: 'pending', paymentStatus: 'pending' by default)
+2. System creates Zaprite order with job details
+3. Customer redirects to Zaprite checkout page
+4. Customer pays via fiat or Lightning (with BTC discount)
+5. Zaprite webhook fires on payment event
+6. Webhook handler updates paymentStatus ('paid', 'expired', etc.)
+7. If paymentStatus becomes 'paid', job status automatically updates to 'matched'
+8. If payment expires, customer can resume payment from dashboard ("Pay Now" button)
 
 ### UI Framework
 - **Radix UI** primitives for accessible component foundation
