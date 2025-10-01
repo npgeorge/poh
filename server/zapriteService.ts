@@ -44,6 +44,20 @@ export class ZapriteService {
    * Create a Zaprite order for a print job
    */
   async createOrder(orderData: ZapriteOrderRequest): Promise<ZapriteOrderResponse> {
+    // Development mode: return fake order for UI testing
+    if (!this.apiKey && process.env.DEV_FAKE_PAYMENTS === 'true') {
+      console.warn('⚠️  DEV MODE: Returning fake Zaprite order (DEV_FAKE_PAYMENTS=true)');
+      return {
+        id: `fake-order-${Date.now()}`,
+        checkoutUrl: `${orderData.redirectUrl || '/customer/dashboard'}?dev_payment_test=true`,
+        status: 'pending',
+        amount: orderData.amount,
+        currency: orderData.currency || 'USD',
+        externalUniqId: orderData.externalUniqId,
+        createdAt: new Date().toISOString(),
+      };
+    }
+
     if (!this.apiKey) {
       throw new Error('Zaprite API key not configured');
     }

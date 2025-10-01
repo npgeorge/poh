@@ -822,5 +822,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   (httpServer as any).broadcastToUser = broadcastToUser;
   (httpServer as any).broadcastJobUpdate = broadcastJobUpdate;
   
+  // Development-only endpoint to simulate payment completion
+  if (process.env.NODE_ENV === 'development' && process.env.DEV_FAKE_PAYMENTS === 'true') {
+    app.post("/api/dev/payments/:jobId/mark-paid", isAuthenticated, async (req, res) => {
+      try {
+        const jobId = parseInt(req.params.jobId);
+        const userId = req.user?.claims?.sub;
+
+        const job = await storage.getJobById(jobId);
+        if (!job) {
+          return res.status(404).json({ message: "Job not found" });
+        }
+
+        if (job.customerId !== userId) {
+          return res.status(403).json({ message: "Not authorized" });
+        }
+
+        // Simulate payment completion
+        await storage.updateJob(jobId, {
+          paymentStatus: 'paid',
+          status: 'matched',
+        });
+
+        console.log(`🧪 DEV: Marked job ${jobId} as paid (simulated)`);
+        res.json({ success: true, message: "Payment simulated successfully" });
+      } catch (error) {
+        console.error("Error simulating payment:", error);
+        res.status(500).json({ message: "Failed to simulate payment" });
+      }
+    });
+  }
+  
   return httpServer;
 }
