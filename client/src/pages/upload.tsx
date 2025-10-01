@@ -52,16 +52,46 @@ export default function UploadPage() {
 
   const createJobMutation = useMutation({
     mutationFn: async (jobData: any) => {
-      const response = await apiRequest("POST", "/api/jobs", jobData);
-      return response.json();
+      // Create the job
+      const jobResponse = await apiRequest("POST", "/api/jobs", jobData);
+      const newJob = await jobResponse.json();
+      
+      try {
+        // Create payment order
+        const paymentResponse = await apiRequest("POST", `/api/jobs/${newJob.id}/payment`, {});
+        const paymentData = await paymentResponse.json();
+        
+        return { job: newJob, payment: paymentData, paymentError: false };
+      } catch (paymentError) {
+        // Job created successfully but payment failed
+        return { job: newJob, payment: null, paymentError: true };
+      }
     },
-    onSuccess: (newJob) => {
-      toast({
-        title: "Job Created Successfully",
-        description: `Your print job has been created and is pending review.`,
-      });
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
-      setLocation("/customer/dashboard");
+      
+      if (data.paymentError) {
+        // Job created but payment failed
+        toast({
+          title: "Job Created",
+          description: "Your job was created but payment setup failed. Go to your dashboard to complete payment.",
+        });
+        setLocation("/customer/dashboard");
+      } else if (data.payment?.checkoutUrl) {
+        // Success - redirect to payment
+        toast({
+          title: "Job Created Successfully",
+          description: "Redirecting to payment...",
+        });
+        window.location.href = data.payment.checkoutUrl;
+      } else {
+        // Fallback
+        toast({
+          title: "Job Created Successfully",
+          description: "Your print job has been created.",
+        });
+        setLocation("/customer/dashboard");
+      }
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
