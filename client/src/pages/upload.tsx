@@ -61,7 +61,7 @@ export default function UploadPage() {
         description: `Your print job has been created and is pending review.`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/jobs"] });
-      setLocation("/dashboard");
+      setLocation("/customer/dashboard");
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
