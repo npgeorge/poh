@@ -80,68 +80,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ uploadURL });
   });
 
-  // Lightning payment routes
-  app.post("/api/lightning/invoice", isAuthenticated, async (req, res) => {
-    try {
-      const { amount, description } = req.body;
-      const lnbitsApiKey = process.env.LNBITS_API_KEY || process.env.LNBITS_API_KEY_ENV_VAR || "default_key";
-      const lnbitsBaseUrl = process.env.LNBITS_BASE_URL || "https://legend.lnbits.com";
-
-      const response = await fetch(`${lnbitsBaseUrl}/api/v1/payments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': lnbitsApiKey
-        },
-        body: JSON.stringify({
-          out: false,
-          amount: amount,
-          memo: description || "PoH 3D Printing Payment"
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`LNbits API error: ${response.status}`);
-      }
-
-      const invoice = await response.json();
-      res.json(invoice);
-    } catch (error) {
-      console.error("Error creating Lightning invoice:", error);
-      res.status(500).json({ message: "Failed to create Lightning invoice" });
-    }
-  });
-
-  // Test Lightning endpoint
-  app.get("/api/test-lightning", async (req, res) => {
-    try {
-      const lnbitsApiKey = process.env.LNBITS_API_KEY || process.env.LNBITS_API_KEY_ENV_VAR || "default_key";
-      const lnbitsBaseUrl = process.env.LNBITS_BASE_URL || "https://legend.lnbits.com";
-
-      const response = await fetch(`${lnbitsBaseUrl}/api/v1/payments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Api-Key': lnbitsApiKey
-        },
-        body: JSON.stringify({
-          out: false,
-          amount: 1000,
-          memo: "PoH Test Invoice - 1000 sats"
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`LNbits API error: ${response.status}`);
-      }
-
-      const invoice = await response.json();
-      res.json({ success: true, invoice });
-    } catch (error) {
-      console.error("Error testing Lightning:", error);
-      res.status(500).json({ success: false, message: "Failed to create test Lightning invoice" });
-    }
-  });
+  // Zaprite payment routes will be added here
 
   // Printer routes
   app.post("/api/printers", isAuthenticated, requireRole('printer_owner'), async (req: any, res) => {
