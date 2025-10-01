@@ -73,8 +73,15 @@ export const jobs = pgTable("jobs", {
   estimatedCost: decimal("estimated_cost", { precision: 10, scale: 2 }),
   finalCost: decimal("final_cost", { precision: 10, scale: 2 }),
   status: varchar("status", { length: 50 }).default('pending').notNull(),
+  // Zaprite payment fields
+  paymentStatus: varchar("payment_status", { length: 50 }).default('pending').notNull(), // 'pending', 'paid', 'expired', 'refunded'
+  zapriteOrderId: varchar("zaprite_order_id", { length: 255 }), // Zaprite order ID
+  checkoutUrl: text("checkout_url"), // Zaprite checkout URL
+  paymentMethod: varchar("payment_method", { length: 50 }), // 'lightning', 'bitcoin', 'card', etc.
+  // Legacy Lightning fields (kept for backwards compatibility)
   lightningInvoice: text("lightning_invoice"),
   paymentHash: varchar("payment_hash", { length: 255 }),
+  // Quality control
   qualityPhotos: jsonb("quality_photos"), // Array of photo URLs
   qualityScore: decimal("quality_score", { precision: 5, scale: 2 }), // AI quality score 0-100
   aiAnalysis: jsonb("ai_analysis"), // AI analysis results
@@ -236,10 +243,21 @@ export const insertJobSchema = createInsertSchema(jobs).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  // Payment fields - server-only, not settable by clients
+  paymentStatus: true,
+  zapriteOrderId: true,
+  checkoutUrl: true,
+  paymentMethod: true,
+  lightningInvoice: true,
+  paymentHash: true,
+  // Pricing fields - server-calculated only, prevents price tampering
+  estimatedCost: true,
+  finalCost: true,
+  // Quality control fields - set by AI analysis
+  qualityScore: true,
+  aiAnalysis: true,
 }).extend({
   estimatedWeight: z.number().or(z.string()).transform((val) => String(val)).optional(),
-  estimatedCost: z.number().or(z.string()).transform((val) => String(val)).optional(),
-  finalCost: z.number().or(z.string()).transform((val) => String(val)).optional(),
 });
 
 export const insertNotificationSchema = createInsertSchema(notifications).omit({
