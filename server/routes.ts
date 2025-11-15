@@ -9,6 +9,7 @@ import { insertPrinterSchema, insertJobSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { aiAnalysisService } from "./aiAnalysisService";
+import { matchingService } from "./matchingService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -145,23 +146,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Zaprite webhook handler
-  // NOTE: For production, this route needs raw body middleware for proper signature verification
-  // Add before express.json(): app.use('/api/webhooks/zaprite', express.raw({ type: 'application/json' }))
-  app.post("/api/webhooks/zaprite", async (req, res) => {
+  // NOTE: Raw body middleware configured in server/index.ts for signature verification
+  app.post("/api/webhooks/zaprite", async (req: any, res) => {
     try {
       const signature = req.headers['x-zaprite-signature'] as string;
-      // TODO: Use raw body for signature verification when available
-      const payload = JSON.stringify(req.body);
+
+      // Use raw body for signature verification (captured by middleware)
+      const rawBody = req.rawBody || JSON.stringify(req.body);
+
+      // Parse the body for processing
+      const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
 
       // Verify webhook signature
       // For development, set ZAPRITE_WEBHOOK_SECRET_BYPASS=true
-      if (!zapriteService.verifyWebhookSignature(payload, signature || '')) {
+      if (!zapriteService.verifyWebhookSignature(rawBody, signature || '')) {
         console.error("Invalid Zaprite webhook signature");
         return res.status(401).json({ message: "Invalid signature" });
       }
 
       // Process webhook
-      const webhookData = zapriteService.processWebhook(req.body);
+      const webhookData = zapriteService.processWebhook(body);
       const jobId = parseInt(webhookData.jobId);
 
       // Validate job ID
@@ -182,8 +186,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         paymentStatus: paymentStatus,
       });
 
-      // If paid, update job status to matched (ready for printer assignment)
+      // If paid, create escrow and update job status to matched
       if (paymentStatus === 'paid') {
+        // Get the job to get payment amount
+        const job = await storage.getJobById(jobId);
+        if (job && job.estimatedCost) {
+          // Check if escrow already exists
+          const existingEscrow = await storage.getEscrowByJobId(jobId);
+
+          if (!existingEscrow) {
+            // Create escrow holding the payment
+            await storage.createEscrow({
+              jobId: jobId,
+              amount: job.estimatedCost,
+              status: 'held',
+              releaseCondition: 'auto_on_completion',
+            });
+            console.log(`✅ Escrow created for job ${jobId} - Amount: ${job.estimatedCost}`);
+          }
+        }
+
         await storage.updateJob(jobId, {
           status: 'matched',
         });
@@ -208,7 +230,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verify user has access to this job
       const userId = req.user?.claims?.sub;
-      const userHasAccess = job.customerId === userId || 
+      const userHasAccess = job.customerId === userId ||
         (job.printerId && await storage.getPrinterById(job.printerId).then(p => p?.userId === userId));
 
       if (!userHasAccess) {
@@ -223,6 +245,375 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error checking payment status:", error);
       res.status(500).json({ message: "Failed to check payment status" });
+    }
+  });
+
+  // Escrow routes
+  // Get escrow status for a job
+  app.get("/api/escrow/job/:jobId", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const job = await storage.getJobById(jobId);
+
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Verify user has access to this job
+      const userId = req.user?.claims?.sub;
+      const printer = job.printerId ? await storage.getPrinterById(job.printerId) : null;
+      const userHasAccess = job.customerId === userId || (printer && printer.userId === userId);
+
+      if (!userHasAccess) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const escrowRecord = await storage.getEscrowByJobId(jobId);
+
+      if (!escrowRecord) {
+        return res.status(404).json({ message: "No escrow found for this job" });
+      }
+
+      res.json(escrowRecord);
+    } catch (error) {
+      console.error("Error fetching escrow:", error);
+      res.status(500).json({ message: "Failed to fetch escrow" });
+    }
+  });
+
+  // Release escrow (admin or automated after quality approval)
+  app.post("/api/escrow/:id/release", isAuthenticated, async (req: any, res) => {
+    try {
+      const escrowId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub;
+
+      const escrowRecord = await storage.getEscrowByJobId(escrowId);
+      if (!escrowRecord) {
+        return res.status(404).json({ message: "Escrow not found" });
+      }
+
+      // Get the job to verify permissions
+      const job = await storage.getJobById(escrowRecord.jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Only customer can approve release (or admin in future)
+      if (job.customerId !== userId) {
+        return res.status(403).json({ message: "Only the customer can release escrow" });
+      }
+
+      // Check if job is completed and quality approved
+      if (job.status !== 'completed' || !job.qualityScore) {
+        return res.status(400).json({
+          message: "Job must be completed with quality verification before escrow release"
+        });
+      }
+
+      // Check quality score threshold (e.g., >= 70/100)
+      const qualityScore = parseFloat(job.qualityScore);
+      if (qualityScore < 70) {
+        return res.status(400).json({
+          message: "Quality score too low for automatic escrow release. Please file a dispute if needed."
+        });
+      }
+
+      // Release the escrow
+      const released = await storage.releaseEscrow(escrowRecord.id);
+
+      // Notify printer owner
+      if (job.printerId) {
+        const printer = await storage.getPrinterById(job.printerId);
+        if (printer) {
+          await storage.createNotification({
+            userId: printer.userId,
+            type: 'payment',
+            title: 'Payment Released',
+            message: `Escrow payment for "${job.fileName || `Job #${job.id}`}" has been released!`,
+            data: { jobId: job.id, escrowId: released.id, amount: released.amount }
+          });
+        }
+      }
+
+      res.json({
+        message: "Escrow released successfully",
+        escrow: released
+      });
+    } catch (error) {
+      console.error("Error releasing escrow:", error);
+      res.status(500).json({ message: "Failed to release escrow" });
+    }
+  });
+
+  // Hold escrow on dispute
+  app.post("/api/escrow/:id/hold", isAuthenticated, async (req: any, res) => {
+    try {
+      const escrowId = parseInt(req.params.id);
+      const { reason } = req.body;
+
+      const escrowRecord = await storage.getEscrowByJobId(escrowId);
+      if (!escrowRecord) {
+        return res.status(404).json({ message: "Escrow not found" });
+      }
+
+      // Update escrow status to disputed
+      const updated = await storage.updateEscrow(escrowRecord.id, {
+        status: 'disputed',
+      });
+
+      res.json({
+        message: "Escrow placed on hold",
+        escrow: updated
+      });
+    } catch (error) {
+      console.error("Error holding escrow:", error);
+      res.status(500).json({ message: "Failed to hold escrow" });
+    }
+  });
+
+  // Dispute routes
+  // Create a new dispute
+  app.post("/api/disputes", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const { jobId, type, description, evidenceUrls } = req.body;
+
+      // Validate required fields
+      if (!jobId || !type || !description) {
+        return res.status(400).json({
+          message: "jobId, type, and description are required"
+        });
+      }
+
+      // Get the job to determine parties
+      const job = await storage.getJobById(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      // Verify user is involved in the job
+      const printer = job.printerId ? await storage.getPrinterById(job.printerId) : null;
+      const isCustomer = job.customerId === userId;
+      const isPrinterOwner = printer && printer.userId === userId;
+
+      if (!isCustomer && !isPrinterOwner) {
+        return res.status(403).json({
+          message: "You can only file disputes for jobs you're involved in"
+        });
+      }
+
+      // Determine respondent (the other party)
+      const respondentId = isCustomer ? (printer?.userId || job.customerId) : job.customerId;
+
+      // Create the dispute
+      const dispute = await storage.createDispute({
+        jobId,
+        initiatorId: userId,
+        respondentId,
+        type,
+        description,
+        status: 'open',
+        evidenceUrls: evidenceUrls || null,
+      });
+
+      // Place escrow on hold if it exists
+      const escrowRecord = await storage.getEscrowByJobId(jobId);
+      if (escrowRecord && escrowRecord.status === 'held') {
+        await storage.updateEscrow(escrowRecord.id, {
+          status: 'disputed',
+        });
+      }
+
+      // Notify the respondent
+      await storage.createNotification({
+        userId: respondentId,
+        type: 'dispute',
+        title: 'New Dispute Filed',
+        message: `A dispute has been filed for "${job.fileName || `Job #${job.id}`}" - Type: ${type}`,
+        data: { disputeId: dispute.id, jobId, type }
+      });
+
+      // Notify the initiator
+      await storage.createNotification({
+        userId,
+        type: 'dispute',
+        title: 'Dispute Created',
+        message: `Your dispute for "${job.fileName || `Job #${job.id}`}" has been filed and is under review`,
+        data: { disputeId: dispute.id, jobId, type }
+      });
+
+      res.json({
+        message: "Dispute created successfully",
+        dispute
+      });
+    } catch (error) {
+      console.error("Error creating dispute:", error);
+      res.status(500).json({ message: "Failed to create dispute" });
+    }
+  });
+
+  // Get all disputes for the authenticated user
+  app.get("/api/disputes/my", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.claims?.sub;
+      const disputes = await storage.getDisputesByUserId(userId);
+      res.json(disputes);
+    } catch (error) {
+      console.error("Error fetching user disputes:", error);
+      res.status(500).json({ message: "Failed to fetch disputes" });
+    }
+  });
+
+  // Get disputes for a specific job
+  app.get("/api/disputes/job/:jobId", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.jobId);
+      const userId = req.user?.claims?.sub;
+
+      // Verify user has access to this job
+      const job = await storage.getJobById(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      const printer = job.printerId ? await storage.getPrinterById(job.printerId) : null;
+      const hasAccess = job.customerId === userId || (printer && printer.userId === userId);
+
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const disputes = await storage.getDisputesByJobId(jobId);
+      res.json(disputes);
+    } catch (error) {
+      console.error("Error fetching job disputes:", error);
+      res.status(500).json({ message: "Failed to fetch disputes" });
+    }
+  });
+
+  // Get single dispute details
+  app.get("/api/disputes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub;
+
+      const dispute = await storage.getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      // Verify user is involved in the dispute
+      if (dispute.initiatorId !== userId && dispute.respondentId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      res.json(dispute);
+    } catch (error) {
+      console.error("Error fetching dispute:", error);
+      res.status(500).json({ message: "Failed to fetch dispute" });
+    }
+  });
+
+  // Update dispute (add evidence, escalate, etc.)
+  app.put("/api/disputes/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub;
+      const updates = req.body;
+
+      const dispute = await storage.getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      // Verify user is involved in the dispute
+      if (dispute.initiatorId !== userId && dispute.respondentId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      // Prevent changing certain fields via this route
+      delete updates.resolvedBy;
+      delete updates.resolvedAt;
+
+      const updated = await storage.updateDispute(disputeId, updates);
+
+      res.json({
+        message: "Dispute updated successfully",
+        dispute: updated
+      });
+    } catch (error) {
+      console.error("Error updating dispute:", error);
+      res.status(500).json({ message: "Failed to update dispute" });
+    }
+  });
+
+  // Resolve dispute (customer, printer owner, or admin)
+  app.post("/api/disputes/:id/resolve", isAuthenticated, async (req: any, res) => {
+    try {
+      const disputeId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub;
+      const { resolution, releaseEscrow } = req.body;
+
+      if (!resolution) {
+        return res.status(400).json({ message: "Resolution text is required" });
+      }
+
+      const dispute = await storage.getDisputeById(disputeId);
+      if (!dispute) {
+        return res.status(404).json({ message: "Dispute not found" });
+      }
+
+      // For now, allow both parties to resolve (mutual agreement)
+      // In production, you might want admin-only resolution
+      if (dispute.initiatorId !== userId && dispute.respondentId !== userId) {
+        return res.status(403).json({ message: "Not authorized to resolve this dispute" });
+      }
+
+      // Resolve the dispute
+      const resolved = await storage.resolveDispute(disputeId, resolution, userId);
+
+      // Get the job
+      const job = await storage.getJobById(dispute.jobId);
+
+      // Handle escrow based on resolution
+      if (job && releaseEscrow !== undefined) {
+        const escrowRecord = await storage.getEscrowByJobId(dispute.jobId);
+        if (escrowRecord) {
+          if (releaseEscrow === true) {
+            await storage.releaseEscrow(escrowRecord.id);
+          } else {
+            // Keep held or handle refund
+            await storage.updateEscrow(escrowRecord.id, {
+              status: 'held'
+            });
+          }
+        }
+      }
+
+      // Notify both parties
+      await storage.createNotification({
+        userId: dispute.initiatorId,
+        type: 'dispute',
+        title: 'Dispute Resolved',
+        message: `Dispute for "${job?.fileName || `Job #${dispute.jobId}`}" has been resolved`,
+        data: { disputeId, resolution }
+      });
+
+      await storage.createNotification({
+        userId: dispute.respondentId,
+        type: 'dispute',
+        title: 'Dispute Resolved',
+        message: `Dispute for "${job?.fileName || `Job #${dispute.jobId}`}" has been resolved`,
+        data: { disputeId, resolution }
+      });
+
+      res.json({
+        message: "Dispute resolved successfully",
+        dispute: resolved
+      });
+    } catch (error) {
+      console.error("Error resolving dispute:", error);
+      res.status(500).json({ message: "Failed to resolve dispute" });
     }
   });
 
@@ -377,8 +768,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Validate material compatibility
         if (job.material && !printer.materials.includes(job.material)) {
-          return res.status(400).json({ 
-            message: `Selected printer does not support ${job.material}. Supported materials: ${printer.materials.join(', ')}` 
+          return res.status(400).json({
+            message: `Selected printer does not support ${job.material}. Supported materials: ${printer.materials.join(', ')}`
           });
         }
 
@@ -389,16 +780,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const updatedJob = await storage.updateJob(jobId, updates);
-      
+
       // Broadcast real-time job update if status changed
       if (updates.status) {
         await (httpServer as any).broadcastJobUpdate(jobId, updates.status);
       }
-      
+
       res.json(updatedJob);
     } catch (error) {
       console.error("Error updating job:", error);
       res.status(500).json({ message: "Failed to update job" });
+    }
+  });
+
+  // Job matching routes
+  // Get recommended printers for a job
+  app.get("/api/jobs/:id/matches", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub;
+      const limit = parseInt(req.query.limit as string) || 10;
+
+      // Verify job exists and user has access
+      const job = await storage.getJobById(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (job.customerId !== userId) {
+        return res.status(403).json({ message: "Not authorized to view matches for this job" });
+      }
+
+      // Get matches
+      const matches = await matchingService.findMatches(jobId, limit);
+
+      res.json({
+        jobId,
+        matches,
+        total: matches.length,
+      });
+    } catch (error) {
+      console.error("Error finding job matches:", error);
+      res.status(500).json({ message: "Failed to find matches" });
+    }
+  });
+
+  // Get best match for a job
+  app.get("/api/jobs/:id/best-match", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub;
+
+      // Verify job exists and user has access
+      const job = await storage.getJobById(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (job.customerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const bestMatch = await matchingService.getBestMatch(jobId);
+
+      if (!bestMatch) {
+        return res.status(404).json({ message: "No suitable printers found" });
+      }
+
+      res.json(bestMatch);
+    } catch (error) {
+      console.error("Error finding best match:", error);
+      res.status(500).json({ message: "Failed to find best match" });
+    }
+  });
+
+  // Get matches with custom criteria
+  app.post("/api/jobs/:id/matches/search", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const userId = req.user?.claims?.sub;
+      const { location, material, maxPrice, minRating, limit } = req.body;
+
+      // Verify job exists and user has access
+      const job = await storage.getJobById(jobId);
+      if (!job) {
+        return res.status(404).json({ message: "Job not found" });
+      }
+
+      if (job.customerId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      const matches = await matchingService.findMatchesWithCriteria(
+        jobId,
+        { location, material, maxPrice, minRating },
+        limit || 10
+      );
+
+      res.json({
+        jobId,
+        matches,
+        total: matches.length,
+        criteria: { location, material, maxPrice, minRating },
+      });
+    } catch (error) {
+      console.error("Error searching matches:", error);
+      res.status(500).json({ message: "Failed to search matches" });
     }
   });
 
@@ -836,6 +1323,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         if (job.customerId !== userId) {
           return res.status(403).json({ message: "Not authorized" });
+        }
+
+        // Create escrow if it doesn't exist
+        const existingEscrow = await storage.getEscrowByJobId(jobId);
+        if (!existingEscrow && job.estimatedCost) {
+          await storage.createEscrow({
+            jobId: jobId,
+            amount: job.estimatedCost,
+            status: 'held',
+            releaseCondition: 'auto_on_completion',
+          });
+          console.log(`🧪 DEV: Escrow created for job ${jobId}`);
         }
 
         // Simulate payment completion
