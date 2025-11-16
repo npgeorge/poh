@@ -8,9 +8,8 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
-}
+// Check if running in local development mode
+const isLocalDev = process.env.REPL_ID === 'local-dev' || !process.env.REPL_ID;
 
 const getOidcConfig = memoize(
   async () => {
@@ -71,6 +70,34 @@ export async function setupAuth(app: Express) {
   app.use(getSession());
   app.use(passport.initialize());
   app.use(passport.session());
+
+  // Skip Replit OIDC setup in local development
+  if (isLocalDev) {
+    console.log("⚠️  Running in local development mode - Replit auth disabled");
+    console.log("⚠️  Authentication endpoints will not be available");
+
+    passport.serializeUser((user: Express.User, cb) => cb(null, user));
+    passport.deserializeUser((user: Express.User, cb) => cb(null, user));
+
+    // Provide stub endpoints for local dev
+    app.get("/api/login", (req, res) => {
+      res.status(501).json({ message: "Auth not available in local development mode" });
+    });
+
+    app.get("/api/callback", (req, res) => {
+      res.status(501).json({ message: "Auth not available in local development mode" });
+    });
+
+    app.get("/api/logout", (req, res) => {
+      res.status(501).json({ message: "Auth not available in local development mode" });
+    });
+
+    return;
+  }
+
+  if (!process.env.REPLIT_DOMAINS) {
+    throw new Error("Environment variable REPLIT_DOMAINS not provided");
+  }
 
   const config = await getOidcConfig();
 
