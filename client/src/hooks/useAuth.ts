@@ -5,7 +5,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 
 export function useAuth() {
   const [, setLocation] = useLocation();
-  
+
   const { data: user, isLoading } = useQuery<User>({
     queryKey: ["/api/auth/user"],
     retry: false,
@@ -26,11 +26,23 @@ export function useAuth() {
     },
   });
 
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/logout", {});
+    },
+    onSuccess: () => {
+      queryClient.clear();
+      setLocation('/');
+    },
+  });
+
   return {
     user,
     isLoading,
     isAuthenticated: !!user,
     switchRole: switchRoleMutation.mutate,
     isSwitchingRole: switchRoleMutation.isPending,
+    logout: logoutMutation.mutate,
+    isLoggingOut: logoutMutation.isPending,
   };
 }

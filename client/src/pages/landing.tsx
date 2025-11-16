@@ -39,7 +39,7 @@ export default function Landing() {
               <a href="#features" className="text-gray-200 hover:text-white transition-colors">Features</a>
               <a href="#pricing" className="text-gray-200 hover:text-white transition-colors">Pricing</a>
               <Button asChild variant="secondary">
-                <a href="/api/login" data-testid="button-signin">Sign In</a>
+                <Link href="/login" data-testid="button-signin">Sign In</Link>
               </Button>
             </div>
             
@@ -69,13 +69,13 @@ export default function Landing() {
               
               <div className="flex flex-col sm:flex-row gap-4">
                 <Button asChild size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25">
-                  <a href="/api/login" data-testid="button-upload-print">
+                  <a href="/login" data-testid="button-upload-print">
                     <Upload className="w-5 h-5 mr-2" />
                     Upload & Print
                   </a>
                 </Button>
                 <Button asChild size="lg" variant="outline" className="bg-white/10 text-white border-white/20 hover:bg-white/20">
-                  <a href="/api/login" data-testid="button-become-printer">
+                  <a href="/login" data-testid="button-become-printer">
                     <Printer className="w-5 h-5 mr-2" />
                     Become a Printer
                   </a>
@@ -371,7 +371,7 @@ export default function Landing() {
                 </div>
                 
                 <Button asChild className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/25">
-                  <a href="/api/login" data-testid="button-start-printing">
+                  <a href="/login" data-testid="button-start-printing">
                     <Upload className="w-5 h-5 mr-2" />
                     Start Printing Now
                   </a>
@@ -409,7 +409,7 @@ export default function Landing() {
                 </div>
                 
                 <Button asChild className="w-full bg-accent text-white hover:bg-accent/90">
-                  <a href="/api/login" data-testid="button-register-printer">
+                  <a href="/login" data-testid="button-register-printer">
                     <Printer className="w-5 h-5 mr-2" />
                     Register Your Printer
                   </a>

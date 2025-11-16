@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Loading } from "@/components/loading";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
+import Login from "@/pages/login";
 import Upload from "@/pages/upload";
 import Printers from "@/pages/printers";
 import CustomerDashboard from "@/pages/customer-dashboard";
@@ -68,6 +69,9 @@ function Router() {
 
   return (
     <Switch>
+      {/* Public routes */}
+      <Route path="/login" component={Login} />
+
       {/* Customer routes */}
       <Route path="/customer/dashboard">
         <RoleGuard allowedRole="customer">
