@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated, requireRole } from "./replitAuth";
+import { setupAuth, isAuthenticated, requireRole } from "./auth";
 import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 import { ObjectPermission } from "./objectAcl";
 import { insertPrinterSchema, insertJobSchema } from "@shared/schema";
@@ -15,22 +15,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
   await setupAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.claims?.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
   // Switch user role
   app.post('/api/auth/switch-role', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = req.user?.userId;
       const { role } = req.body;
       
       if (!role || !['customer', 'printer_owner'].includes(role)) {
@@ -53,7 +41,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Object storage routes for STL files and photos
   app.get("/objects/:objectPath(*)", isAuthenticated, async (req, res) => {
-    const userId = req.user?.claims?.sub;
+    const userId = (req.user as any)?.userId;
     const objectStorageService = new ObjectStorageService();
     try {
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
@@ -95,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify user owns this job
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       if (job.customerId !== userId) {
         return res.status(403).json({ message: "Not authorized to pay for this job" });
       }
@@ -229,7 +217,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify user has access to this job
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const userHasAccess = job.customerId === userId ||
         (job.printerId && await storage.getPrinterById(job.printerId).then(p => p?.userId === userId));
 
@@ -260,7 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify user has access to this job
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const printer = job.printerId ? await storage.getPrinterById(job.printerId) : null;
       const userHasAccess = job.customerId === userId || (printer && printer.userId === userId);
 
@@ -285,7 +273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/escrow/:id/release", isAuthenticated, async (req: any, res) => {
     try {
       const escrowId = parseInt(req.params.id);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
 
       const escrowRecord = await storage.getEscrowByJobId(escrowId);
       if (!escrowRecord) {
@@ -375,7 +363,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create a new dispute
   app.post("/api/disputes", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const { jobId, type, description, evidenceUrls } = req.body;
 
       // Validate required fields
@@ -455,7 +443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all disputes for the authenticated user
   app.get("/api/disputes/my", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const disputes = await storage.getDisputesByUserId(userId);
       res.json(disputes);
     } catch (error) {
@@ -468,7 +456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/disputes/job/:jobId", isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.jobId);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
 
       // Verify user has access to this job
       const job = await storage.getJobById(jobId);
@@ -495,7 +483,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/disputes/:id", isAuthenticated, async (req: any, res) => {
     try {
       const disputeId = parseInt(req.params.id);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
 
       const dispute = await storage.getDisputeById(disputeId);
       if (!dispute) {
@@ -518,7 +506,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/disputes/:id", isAuthenticated, async (req: any, res) => {
     try {
       const disputeId = parseInt(req.params.id);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const updates = req.body;
 
       const dispute = await storage.getDisputeById(disputeId);
@@ -551,7 +539,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/disputes/:id/resolve", isAuthenticated, async (req: any, res) => {
     try {
       const disputeId = parseInt(req.params.id);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const { resolution, releaseEscrow } = req.body;
 
       if (!resolution) {
@@ -620,7 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Printer routes
   app.post("/api/printers", isAuthenticated, requireRole('printer_owner'), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const printerData = insertPrinterSchema.parse({
         ...req.body,
         userId
@@ -686,7 +674,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/printers/my", isAuthenticated, requireRole('printer_owner'), async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const printers = await storage.getPrintersByUserId(userId);
       res.json(printers);
     } catch (error) {
@@ -698,7 +686,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Job routes
   app.post("/api/jobs", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const jobData = insertJobSchema.parse({
         ...req.body,
         customerId: userId
@@ -727,7 +715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/jobs/my", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const jobs = await storage.getJobsByCustomerId(userId);
       res.json(jobs);
     } catch (error) {
@@ -740,7 +728,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const jobId = parseInt(req.params.id);
       const updates = req.body;
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
 
       // If updating with printerId (job acceptance), validate printer eligibility
       if (updates.printerId && updates.status === 'matched') {
@@ -798,7 +786,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/jobs/:id/matches", isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const limit = parseInt(req.query.limit as string) || 10;
 
       // Verify job exists and user has access
@@ -829,7 +817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/jobs/:id/best-match", isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
 
       // Verify job exists and user has access
       const job = await storage.getJobById(jobId);
@@ -858,7 +846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/jobs/:id/matches/search", isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const { location, material, maxPrice, minRating, limit } = req.body;
 
       // Verify job exists and user has access
@@ -894,7 +882,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const jobId = parseInt(req.params.id);
       const { photoUrls } = req.body;
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
 
       if (!Array.isArray(photoUrls) || photoUrls.length === 0) {
         return res.status(400).json({ message: "photoUrls array is required" });
@@ -934,7 +922,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/jobs/:id/analyze-quality", isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
 
       // Get the job and validate permissions
       const job = await storage.getJobById(jobId);
@@ -1002,7 +990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/jobs/:id/quality-analysis", isAuthenticated, async (req: any, res) => {
     try {
       const jobId = parseInt(req.params.id);
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
 
       // Get the job and validate permissions
       const job = await storage.getJobById(jobId);
@@ -1035,7 +1023,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notification routes
   app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub;
+      const userId = (req.user as any)?.userId;
       const notifications = await storage.getUserNotifications(userId);
       res.json(notifications);
     } catch (error) {
@@ -1061,7 +1049,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ error: "stlFileURL is required" });
     }
 
-    const userId = req.user?.claims?.sub;
+    const userId = (req.user as any)?.userId;
 
     try {
       const objectStorageService = new ObjectStorageService();
@@ -1142,12 +1130,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Extract user ID from session data
         const sessData = sessionData.sess;
-        const userId = sessData?.passport?.user?.claims?.sub;
-        
-        if (!userId) {
+        const userId = sessData?.passport?.user; // userId is serialized directly as a string
+
+        if (!userId || typeof userId !== 'string') {
           return null;
         }
-        
+
         // Verify user exists
         const user = await storage.getUser(userId);
         return user ? userId : null;
@@ -1314,7 +1302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     app.post("/api/dev/payments/:jobId/mark-paid", isAuthenticated, async (req, res) => {
       try {
         const jobId = parseInt(req.params.jobId);
-        const userId = req.user?.claims?.sub;
+        const userId = (req.user as any)?.userId;
 
         const job = await storage.getJobById(jobId);
         if (!job) {
