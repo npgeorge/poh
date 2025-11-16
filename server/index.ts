@@ -3,6 +3,17 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 const app = express();
+
+// Raw body middleware for webhook signature verification
+// This must come BEFORE express.json() to capture the raw body
+app.use('/api/webhooks/zaprite', express.raw({
+  type: 'application/json',
+  verify: (req: any, res, buf) => {
+    // Store raw body for signature verification
+    req.rawBody = buf.toString('utf8');
+  }
+}));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 

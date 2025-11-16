@@ -3,6 +3,8 @@ import {
   printers,
   jobs,
   notifications,
+  escrow,
+  disputes,
   type User,
   type UpsertUser,
   type Printer,
@@ -11,6 +13,10 @@ import {
   type InsertJob,
   type Notification,
   type InsertNotification,
+  type Escrow,
+  type InsertEscrow,
+  type Dispute,
+  type InsertDispute,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, ilike, arrayContains, or } from "drizzle-orm";
@@ -50,6 +56,21 @@ export interface IStorage {
   getUnreadNotifications(userId: string): Promise<Notification[]>;
   markNotificationRead(id: number): Promise<void>;
   getUserNotifications(userId: string): Promise<Notification[]>;
+
+  // Escrow operations
+  createEscrow(escrowData: InsertEscrow): Promise<Escrow>;
+  getEscrowByJobId(jobId: number): Promise<Escrow | undefined>;
+  updateEscrow(id: number, updates: Partial<Escrow>): Promise<Escrow>;
+  releaseEscrow(id: number): Promise<Escrow>;
+
+  // Dispute operations
+  createDispute(disputeData: InsertDispute): Promise<Dispute>;
+  getDisputeById(id: number): Promise<Dispute | undefined>;
+  getDisputesByJobId(jobId: number): Promise<Dispute[]>;
+  getDisputesByUserId(userId: string): Promise<Dispute[]>;
+  getAllDisputes(): Promise<Dispute[]>;
+  updateDispute(id: number, updates: Partial<Dispute>): Promise<Dispute>;
+  resolveDispute(id: number, resolution: string, resolvedBy: string): Promise<Dispute>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -249,6 +270,110 @@ export class DatabaseStorage implements IStorage {
       .where(eq(notifications.userId, userId))
       .orderBy(desc(notifications.createdAt))
       .limit(50); // Limit to recent 50 notifications
+  }
+
+  // Escrow operations
+  async createEscrow(escrowData: InsertEscrow): Promise<Escrow> {
+    const [newEscrow] = await db
+      .insert(escrow)
+      .values(escrowData)
+      .returning();
+    return newEscrow;
+  }
+
+  async getEscrowByJobId(jobId: number): Promise<Escrow | undefined> {
+    const [escrowRecord] = await db
+      .select()
+      .from(escrow)
+      .where(eq(escrow.jobId, jobId));
+    return escrowRecord;
+  }
+
+  async updateEscrow(id: number, updates: Partial<Escrow>): Promise<Escrow> {
+    const [updated] = await db
+      .update(escrow)
+      .set(updates)
+      .where(eq(escrow.id, id))
+      .returning();
+    return updated;
+  }
+
+  async releaseEscrow(id: number): Promise<Escrow> {
+    const [released] = await db
+      .update(escrow)
+      .set({
+        status: 'released',
+        releasedAt: new Date(),
+      })
+      .where(eq(escrow.id, id))
+      .returning();
+    return released;
+  }
+
+  // Dispute operations
+  async createDispute(disputeData: InsertDispute): Promise<Dispute> {
+    const [newDispute] = await db
+      .insert(disputes)
+      .values(disputeData)
+      .returning();
+    return newDispute;
+  }
+
+  async getDisputeById(id: number): Promise<Dispute | undefined> {
+    const [dispute] = await db
+      .select()
+      .from(disputes)
+      .where(eq(disputes.id, id));
+    return dispute;
+  }
+
+  async getDisputesByJobId(jobId: number): Promise<Dispute[]> {
+    return await db
+      .select()
+      .from(disputes)
+      .where(eq(disputes.jobId, jobId))
+      .orderBy(desc(disputes.createdAt));
+  }
+
+  async getDisputesByUserId(userId: string): Promise<Dispute[]> {
+    return await db
+      .select()
+      .from(disputes)
+      .where(or(
+        eq(disputes.initiatorId, userId),
+        eq(disputes.respondentId, userId)
+      ))
+      .orderBy(desc(disputes.createdAt));
+  }
+
+  async getAllDisputes(): Promise<Dispute[]> {
+    return await db
+      .select()
+      .from(disputes)
+      .orderBy(desc(disputes.createdAt));
+  }
+
+  async updateDispute(id: number, updates: Partial<Dispute>): Promise<Dispute> {
+    const [updated] = await db
+      .update(disputes)
+      .set(updates)
+      .where(eq(disputes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async resolveDispute(id: number, resolution: string, resolvedBy: string): Promise<Dispute> {
+    const [resolved] = await db
+      .update(disputes)
+      .set({
+        status: 'resolved',
+        resolution: resolution,
+        resolvedBy: resolvedBy,
+        resolvedAt: new Date(),
+      })
+      .where(eq(disputes.id, id))
+      .returning();
+    return resolved;
   }
 }
 

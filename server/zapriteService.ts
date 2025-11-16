@@ -123,14 +123,42 @@ export class ZapriteService {
       return true;
     }
 
-    // TODO: Implement HMAC-SHA256 verification when Zaprite provides documentation
-    // Example (if Zaprite uses HMAC-SHA256):
-    // const crypto = require('crypto');
-    // const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(payload).digest('hex');
-    // return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
-    
-    console.error('Webhook signature verification not implemented. Set ZAPRITE_WEBHOOK_SECRET_BYPASS=true for testing.');
-    return false;
+    // Implement HMAC-SHA256 verification
+    // Zaprite typically sends signature as hex-encoded HMAC-SHA256
+    try {
+      const crypto = require('crypto');
+      const expectedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(payload)
+        .digest('hex');
+
+      // Use timing-safe comparison to prevent timing attacks
+      if (signature.length !== expectedSignature.length) {
+        console.error('Webhook signature length mismatch');
+        return false;
+      }
+
+      const sigBuffer = Buffer.from(signature, 'hex');
+      const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+      if (sigBuffer.length !== expectedBuffer.length) {
+        console.error('Webhook signature buffer length mismatch');
+        return false;
+      }
+
+      const isValid = crypto.timingSafeEqual(sigBuffer, expectedBuffer);
+
+      if (!isValid) {
+        console.error('Webhook signature verification failed - invalid signature');
+      } else {
+        console.log('✅ Webhook signature verified successfully');
+      }
+
+      return isValid;
+    } catch (error) {
+      console.error('Error verifying webhook signature:', error);
+      return false;
+    }
   }
 
   /**
