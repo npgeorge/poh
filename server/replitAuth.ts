@@ -30,14 +30,22 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+
+  // Get session secret with fallback for local dev
+  const secret = process.env.SESSION_SECRET || (isLocalDev ? 'local-dev-secret-key-not-for-production' : undefined);
+
+  if (!secret) {
+    throw new Error("SESSION_SECRET must be set in environment variables");
+  }
+
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: !isLocalDev, // Only use secure cookies in production
       maxAge: sessionTtl,
     },
   });
