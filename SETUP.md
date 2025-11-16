@@ -2,12 +2,23 @@
 
 ## Quick Start
 
-### 1. Database Setup
+### 1. Database Setup (Using Supabase)
 In Replit, go to **Tools → Secrets** and add:
 - **Name:** `DATABASE_URL`
-- **Value:** Your Neon PostgreSQL connection string
+- **Value:** Your Supabase PostgreSQL connection string
 
-Get a free database at: https://neon.tech
+**Get Your Supabase Connection String:**
+1. Go to https://supabase.com and sign in
+2. Select your project (or create a new one)
+3. Click **Settings** → **Database**
+4. Scroll to **Connection String** section
+5. Select **URI** tab (not Session pooler)
+6. Copy the connection string:
+   ```
+   postgresql://postgres:[YOUR-PASSWORD]@db.xxx.supabase.co:5432/postgres
+   ```
+7. **Replace `[YOUR-PASSWORD]`** with your actual database password
+8. Add the complete string to Replit Secrets as `DATABASE_URL`
 
 ### 2. Push Database Schema
 ```bash
