@@ -76,9 +76,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
-    const objectStorageService = new ObjectStorageService();
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    res.json({ uploadURL });
+    try {
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      console.error("Object storage not configured for local development:", error);
+      // Return a mock response for local development
+      res.status(501).json({
+        error: "Object storage not available in local development",
+        message: "File uploads require Google Cloud Storage configuration"
+      });
+    }
   });
 
   // Zaprite payment routes
