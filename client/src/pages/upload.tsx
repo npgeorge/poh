@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { STLViewer } from "@/components/STLViewer";
-import { Upload, Box, Zap, ArrowLeft, Printer } from "lucide-react";
+import { Upload, Box, Zap, ArrowLeft, Printer, DollarSign } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
