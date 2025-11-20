@@ -27,6 +27,19 @@ export default function CustomerDashboard() {
   const { user, switchRole, isSwitchingRole } = useAuth();
   const { toast } = useToast();
 
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/logout", {});
+      window.location.href = "/";
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Logout failed. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const { data: myJobs = [], isLoading: jobsLoading } = useQuery<Job[]>({
     queryKey: ["/api/jobs/my"],
     enabled: !!user,
@@ -100,16 +113,15 @@ export default function CustomerDashboard() {
                   Switch to Printer Owner
                 </Button>
               )}
-              <a href="/api/logout">
-                <Button 
-                  variant="outline"
-                  className="border-2 border-black dark:border-white"
-                  data-testid="button-logout"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </Button>
-              </a>
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                className="border-2 border-black dark:border-white"
+                data-testid="button-logout"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
             </div>
           </div>
         </div>
@@ -195,16 +207,16 @@ export default function CustomerDashboard() {
             <Card className="border-2 border-black dark:border-white">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-black dark:text-white">Recent Orders</CardTitle>
-                {myJobs.length > 0 && (
-                  <Link href="/customer/orders">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      data-testid="button-view-all-orders"
-                    >
-                      View All <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </Link>
+                {myJobs.length > 5 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="cursor-not-allowed opacity-50"
+                    data-testid="button-view-all-orders"
+                  >
+                    View All <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
                 )}
               </CardHeader>
               <CardContent>
