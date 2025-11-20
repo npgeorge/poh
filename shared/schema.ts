@@ -148,6 +148,25 @@ export const printerAnalytics = pgTable("printer_analytics", {
   index("idx_printer_analytics_period").on(table.printerId, table.period, table.periodDate)
 ]);
 
+// Bids table for competitive bidding system
+export const bids = pgTable("bids", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").references(() => jobs.id).notNull(),
+  printerId: integer("printer_id").references(() => printers.id).notNull(),
+  userId: varchar("user_id").references(() => users.id).notNull(), // Printer owner who submitted bid
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(), // Bid amount
+  estimatedCompletionDays: integer("estimated_completion_days").notNull(), // Days to complete
+  notes: text("notes"), // Optional notes from printer owner
+  status: varchar("status", { length: 50 }).default('pending').notNull(), // 'pending', 'accepted', 'rejected', 'expired', 'withdrawn'
+  expiresAt: timestamp("expires_at").notNull(), // Bid expiration time
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_bids_job").on(table.jobId),
+  index("idx_bids_printer").on(table.printerId),
+  index("idx_bids_status").on(table.status),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   printers: many(printers),
@@ -165,6 +184,7 @@ export const printersRelations = relations(printers, ({ one, many }) => ({
   }),
   jobs: many(jobs),
   analytics: many(printerAnalytics),
+  bids: many(bids),
 }));
 
 export const jobsRelations = relations(jobs, ({ one, many }) => ({
@@ -178,6 +198,7 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   }),
   disputes: many(disputes),
   escrow: one(escrow),
+  bids: many(bids),
 }));
 
 export const notificationsRelations = relations(notifications, ({ one }) => ({
@@ -220,6 +241,21 @@ export const printerAnalyticsRelations = relations(printerAnalytics, ({ one }) =
   printer: one(printers, {
     fields: [printerAnalytics.printerId],
     references: [printers.id],
+  }),
+}));
+
+export const bidsRelations = relations(bids, ({ one }) => ({
+  job: one(jobs, {
+    fields: [bids.jobId],
+    references: [jobs.id],
+  }),
+  printer: one(printers, {
+    fields: [bids.printerId],
+    references: [printers.id],
+  }),
+  user: one(users, {
+    fields: [bids.userId],
+    references: [users.id],
   }),
 }));
 
@@ -282,6 +318,15 @@ export const insertPrinterAnalyticsSchema = createInsertSchema(printerAnalytics)
   createdAt: true,
 });
 
+export const insertBidSchema = createInsertSchema(bids).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  amount: z.number().or(z.string()).transform((val) => String(val)),
+  estimatedCompletionDays: z.number().min(1, "Completion time must be at least 1 day"),
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -297,3 +342,5 @@ export type InsertEscrow = z.infer<typeof insertEscrowSchema>;
 export type Escrow = typeof escrow.$inferSelect;
 export type InsertPrinterAnalytics = z.infer<typeof insertPrinterAnalyticsSchema>;
 export type PrinterAnalytics = typeof printerAnalytics.$inferSelect;
+export type InsertBid = z.infer<typeof insertBidSchema>;
+export type Bid = typeof bids.$inferSelect;

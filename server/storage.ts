@@ -5,6 +5,7 @@ import {
   notifications,
   escrow,
   disputes,
+  bids,
   type User,
   type UpsertUser,
   type Printer,
@@ -17,6 +18,8 @@ import {
   type InsertEscrow,
   type Dispute,
   type InsertDispute,
+  type Bid,
+  type InsertBid,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc, gte, lte, ilike, arrayContains, or } from "drizzle-orm";
@@ -71,6 +74,16 @@ export interface IStorage {
   getAllDisputes(): Promise<Dispute[]>;
   updateDispute(id: number, updates: Partial<Dispute>): Promise<Dispute>;
   resolveDispute(id: number, resolution: string, resolvedBy: string): Promise<Dispute>;
+
+  // Bid operations
+  createBid(bidData: InsertBid): Promise<Bid>;
+  getBidById(id: number): Promise<Bid | undefined>;
+  getBidsByJobId(jobId: number): Promise<Bid[]>;
+  getBidsByPrinterId(printerId: number): Promise<Bid[]>;
+  updateBid(id: number, updates: Partial<Bid>): Promise<Bid>;
+  acceptBid(id: number): Promise<Bid>;
+  rejectBid(id: number): Promise<Bid>;
+  withdrawBid(id: number): Promise<Bid>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -374,6 +387,61 @@ export class DatabaseStorage implements IStorage {
       .where(eq(disputes.id, id))
       .returning();
     return resolved;
+  }
+
+  // Bid operations
+  async createBid(bidData: InsertBid): Promise<Bid> {
+    const [bid] = await db.insert(bids).values(bidData).returning();
+    return bid;
+  }
+
+  async getBidById(id: number): Promise<Bid | undefined> {
+    const [bid] = await db.select().from(bids).where(eq(bids.id, id));
+    return bid;
+  }
+
+  async getBidsByJobId(jobId: number): Promise<Bid[]> {
+    return await db.select().from(bids).where(eq(bids.jobId, jobId)).orderBy(desc(bids.createdAt));
+  }
+
+  async getBidsByPrinterId(printerId: number): Promise<Bid[]> {
+    return await db.select().from(bids).where(eq(bids.printerId, printerId)).orderBy(desc(bids.createdAt));
+  }
+
+  async updateBid(id: number, updates: Partial<Bid>): Promise<Bid> {
+    const [updated] = await db
+      .update(bids)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(bids.id, id))
+      .returning();
+    return updated;
+  }
+
+  async acceptBid(id: number): Promise<Bid> {
+    const [accepted] = await db
+      .update(bids)
+      .set({ status: 'accepted', updatedAt: new Date() })
+      .where(eq(bids.id, id))
+      .returning();
+    return accepted;
+  }
+
+  async rejectBid(id: number): Promise<Bid> {
+    const [rejected] = await db
+      .update(bids)
+      .set({ status: 'rejected', updatedAt: new Date() })
+      .where(eq(bids.id, id))
+      .returning();
+    return rejected;
+  }
+
+  async withdrawBid(id: number): Promise<Bid> {
+    const [withdrawn] = await db
+      .update(bids)
+      .set({ status: 'withdrawn', updatedAt: new Date() })
+      .where(eq(bids.id, id))
+      .returning();
+    return withdrawn;
   }
 }
 
