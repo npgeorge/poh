@@ -3,8 +3,9 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, requireRole } from "./auth";
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-import { ObjectPermission } from "./objectAcl";
+// Object storage removed - not needed for local development
+// import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+// import { ObjectPermission } from "./objectAcl";
 import { insertPrinterSchema, insertJobSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
@@ -51,34 +52,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Object storage routes for STL files and photos
-  app.get("/objects/:objectPath(*)", isAuthenticated, async (req, res) => {
-    const userId = (req.user as any)?.userId;
-    const objectStorageService = new ObjectStorageService();
-    try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      const canAccess = await objectStorageService.canAccessObjectEntity({
-        objectFile,
-        userId: userId,
-        requestedPermission: ObjectPermission.READ,
-      });
-      if (!canAccess) {
-        return res.sendStatus(401);
-      }
-      objectStorageService.downloadObject(objectFile, res);
-    } catch (error) {
-      console.error("Error checking object access:", error);
-      if (error instanceof ObjectNotFoundError) {
-        return res.sendStatus(404);
-      }
-      return res.sendStatus(500);
-    }
-  });
-
+  // Object storage routes disabled - not needed for local development
+  // For production deployment, implement file storage with your chosen provider
   app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
-    const objectStorageService = new ObjectStorageService();
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-    res.json({ uploadURL });
+    res.status(501).json({
+      error: "File upload not configured",
+      message: "Object storage has been disabled for local development"
+    });
   });
 
   // Zaprite payment routes
@@ -1055,31 +1035,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // STL file upload endpoint
+  // STL file upload endpoint - disabled (object storage removed)
   app.put("/api/stl-files", isAuthenticated, async (req: any, res) => {
-    if (!req.body.stlFileURL) {
-      return res.status(400).json({ error: "stlFileURL is required" });
-    }
-
-    const userId = (req.user as any)?.userId;
-
-    try {
-      const objectStorageService = new ObjectStorageService();
-      const objectPath = await objectStorageService.trySetObjectEntityAclPolicy(
-        req.body.stlFileURL,
-        {
-          owner: userId,
-          visibility: "public", // STL files need to be public for 3D viewer to access them
-        },
-      );
-
-      res.status(200).json({
-        objectPath: objectPath,
-      });
-    } catch (error) {
-      console.error("Error setting STL file:", error);
-      res.status(500).json({ error: "Internal server error" });
-    }
+    res.status(501).json({
+      error: "File upload not configured",
+      message: "Object storage has been disabled for local development"
+    });
   });
 
   const httpServer = createServer(app);
