@@ -1001,7 +1001,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const bidId = parseInt(req.params.id);
       const userId = (req.user as any)?.userId;
       const bid = await storage.getBidById(bidId);
-      
+
       if (!bid) return res.status(404).json({ message: "Bid not found" });
       if (bid.userId !== userId) return res.status(403).json({ message: "You can only withdraw your own bids" });
       if (bid.status !== 'pending') return res.status(400).json({ message: "Can only withdraw pending bids" });
@@ -1014,11 +1014,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all bids for a printer (printer owner only)
+  app.get("/api/printers/:id/bids", isAuthenticated, async (req: any, res) => {
+    try {
+      const printerId = parseInt(req.params.id);
+      const userId = (req.user as any)?.userId;
+
+      // Get printer
+      const printer = await storage.getPrinterById(printerId);
+      if (!printer) {
+        return res.status(404).json({ message: "Printer not found" });
+      }
+
+      // Verify user owns this printer
+      if (printer.userId !== userId) {
+        return res.status(403).json({ message: "Not authorized" });
+      }
+
+      // Get all bids for this printer
+      const bids = await storage.getBidsByPrinterId(printerId);
+
+      // Populate job info for each bid
+      const bidsWithJobs = await Promise.all(
+        bids.map(async (bid) => {
+          const job = await storage.getJobById(bid.jobId);
+          return { ...bid, job };
+        })
+      );
+
       res.json(bidsWithJobs);
     } catch (error) {
       console.error("Error fetching printer bids:", error);
       res.status(500).json({ message: "Failed to fetch bids" });
     }
+  });
 
 
   // Quality photo upload and AI analysis routes
