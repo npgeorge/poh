@@ -4,6 +4,27 @@ This guide will help you test the complete bidding workflow using fake printers 
 
 ---
 
+## 🎨 Visual UI Testing (Easiest!)
+
+**Want to see the bidding UI without any setup?**
+
+Go to: **`http://localhost:3000/dev/bid-sim`**
+
+This page shows:
+- ✅ Interactive mock job card with expandable section
+- ✅ Top 3 competitive bids with real UI components
+- ✅ Printer details, ratings, and notes
+- ✅ Accept bid button (demo mode)
+- ✅ No setup required - just view and test the UI!
+
+**Perfect for:**
+- Testing UI/UX flow
+- Showing stakeholders the bidding interface
+- QA testing without database setup
+- Design review and feedback
+
+---
+
 ## Quick Start: Full Workflow Test
 
 ### 1. Seed Fake Printers (One-Time Setup)

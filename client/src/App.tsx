@@ -12,6 +12,7 @@ import Upload from "@/pages/upload";
 import Printers from "@/pages/printers";
 import CustomerDashboard from "@/pages/customer-dashboard";
 import PrinterOwnerDashboard from "@/pages/printer-owner-dashboard";
+import BidSimulation from "@/pages/bid-simulation";
 
 // Role-based route guard component - uses declarative Redirect
 function RoleGuard({ children, allowedRole }: { children: React.ReactNode; allowedRole: 'customer' | 'printer_owner' }) {
@@ -71,6 +72,9 @@ function Router() {
     <Switch>
       {/* Public routes */}
       <Route path="/login" component={Login} />
+
+      {/* Dev/Testing routes */}
+      <Route path="/dev/bid-sim" component={BidSimulation} />
 
       {/* Customer routes */}
       <Route path="/customer/dashboard">
