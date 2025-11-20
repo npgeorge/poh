@@ -3,14 +3,13 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated, requireRole } from "./auth";
-// Object storage removed - not needed for local development
-// import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
-// import { ObjectPermission } from "./objectAcl";
 import { insertPrinterSchema, insertJobSchema, insertBidSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { aiAnalysisService } from "./aiAnalysisService";
 import { matchingService } from "./matchingService";
+import multer from "multer";
+import { saveFile, getFile, fileExists } from "./localFileStorage";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
@@ -52,13 +51,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Object storage routes disabled - not needed for local development
-  // For production deployment, implement file storage with your chosen provider
-  app.post("/api/objects/upload", isAuthenticated, async (req, res) => {
-    res.status(501).json({
-      error: "File upload not configured",
-      message: "Object storage has been disabled for local development"
-    });
+  // Local file upload (for development)
+  // In production, replace with proper object storage (S3, R2, etc.)
+  const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+    fileFilter: (req, file, cb) => {
+      if (file.originalname.toLowerCase().endsWith('.stl')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only STL files are allowed'));
+      }
+    }
+  });
+
+  app.post("/api/objects/upload", isAuthenticated, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file uploaded" });
+      }
+
+      // Save file locally and get URL
+      const fileUrl = await saveFile(req.file.buffer, req.file.originalname);
+
+      // Return URL in the format expected by the client
+      res.json({ uploadURL: fileUrl });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
+  // Serve uploaded files
+  app.get("/api/files/:filename", async (req, res) => {
+    try {
+      const { filename } = req.params;
+
+      if (!(await fileExists(filename))) {
+        return res.status(404).json({ error: "File not found" });
+      }
+
+      const fileBuffer = await getFile(filename);
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Access-Control-Allow-Origin', '*'); // Allow CORS for STL viewer
+      res.send(fileBuffer);
+    } catch (error) {
+      console.error("Error serving file:", error);
+      res.status(500).json({ error: "Failed to serve file" });
+    }
+  });
+
+  // ACL endpoint (no-op for local development)
+  app.put("/api/stl-files", isAuthenticated, async (req, res) => {
+    // In local development, files are already publicly accessible
+    // In production, this would set proper ACL permissions
+    res.json({ success: true });
   });
 
   // Zaprite payment routes

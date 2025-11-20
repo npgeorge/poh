@@ -157,31 +157,25 @@ export default function UploadPage() {
     }
 
     try {
-      // Get upload parameters
-      const response = await apiRequest("POST", "/api/objects/upload", {});
-      const data = await response.json();
-      
-      // Upload file directly
-      const uploadResponse = await fetch(data.uploadURL, {
-        method: 'PUT',
-        body: file,
-        headers: {
-          'Content-Type': 'application/octet-stream',
-        },
+      // Upload file using multipart form data
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/objects/upload', {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
       });
 
-      if (!uploadResponse.ok) {
+      if (!response.ok) {
         throw new Error('Upload failed');
       }
 
-      // Set ACL policy for the uploaded file
-      await apiRequest("PUT", "/api/stl-files", {
-        stlFileURL: data.uploadURL
-      });
-      
-      // Set the URL after ACL is set to trigger 3D viewer
+      const data = await response.json();
+
+      // Set the URL to trigger 3D viewer
       setStlUrl(data.uploadURL);
-      
+
       toast({
         title: "File Uploaded",
         description: "Your STL file has been uploaded successfully.",
