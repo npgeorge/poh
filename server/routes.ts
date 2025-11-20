@@ -7,7 +7,6 @@ import { setupAuth, isAuthenticated, requireRole } from "./auth";
 // import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 // import { ObjectPermission } from "./objectAcl";
 import { insertPrinterSchema, insertJobSchema, insertBidSchema } from "@shared/schema";
-import { insertPrinterSchema, insertJobSchema, insertBidSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { aiAnalysisService } from "./aiAnalysisService";
@@ -868,6 +867,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error searching matches:", error);
       res.status(500).json({ message: "Failed to search matches" });
     }
+  });
 
   // ==================== BID ROUTES ====================
 
