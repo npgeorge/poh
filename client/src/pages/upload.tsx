@@ -21,6 +21,19 @@ export default function UploadPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
+  const handleLogout = async () => {
+    try {
+      await apiRequest("POST", "/api/logout", {});
+      window.location.href = "/";
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Logout failed. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const [stlFile, setStlFile] = useState<File | null>(null);
   const [stlUrl, setStlUrl] = useState<string>("");
   const [formData, setFormData] = useState({
@@ -249,10 +262,12 @@ export default function UploadPage() {
               <Badge variant="secondary">
                 {user?.firstName || user?.email}
               </Badge>
-              <Button asChild variant="outline">
-                <a href="/api/logout" data-testid="button-logout">
-                  Logout
-                </a>
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                data-testid="button-logout"
+              >
+                Logout
               </Button>
             </div>
           </div>

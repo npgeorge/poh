@@ -465,28 +465,28 @@ export default function Landing() {
               <ul className="space-y-2 text-gray-300">
                 <li><a href="#how-it-works" className="hover:text-white transition-colors">How it Works</a></li>
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">API Docs</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Status</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">API Docs</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">Status</a></li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Community</h4>
               <ul className="space-y-2 text-gray-300">
-                <li><a href="#" className="hover:text-white transition-colors">Discord</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">GitHub</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Newsletter</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">Discord</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">GitHub</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">Blog</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">Newsletter</a></li>
               </ul>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-4">Support</h4>
               <ul className="space-y-2 text-gray-300">
-                <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Privacy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Terms</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">Help Center</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">Contact</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">Privacy</a></li>
+                <li><a href="/" className="hover:text-white transition-colors">Terms</a></li>
               </ul>
             </div>
           </div>
