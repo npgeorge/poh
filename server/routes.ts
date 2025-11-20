@@ -6,7 +6,8 @@ import { setupAuth, isAuthenticated, requireRole } from "./auth";
 // Object storage removed - not needed for local development
 // import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
 // import { ObjectPermission } from "./objectAcl";
-import { insertPrinterSchema, insertJobSchema } from "@shared/schema";
+import { insertPrinterSchema, insertJobSchema, insertBidSchema } from "@shared/schema";
+import { insertPrinterSchema, insertJobSchema, insertBidSchema } from "@shared/schema";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { aiAnalysisService } from "./aiAnalysisService";
@@ -867,7 +868,158 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error searching matches:", error);
       res.status(500).json({ message: "Failed to search matches" });
     }
+
+  // ==================== BID ROUTES ====================
+
+  // Submit a bid on a job (printer owner only)
+  app.post("/api/jobs/:id/bids", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const userId = (req.user as any)?.userId;
+      const job = await storage.getJobById(jobId);
+      
+      if (!job) return res.status(404).json({ message: "Job not found" });
+      if (job.customerId === userId) return res.status(403).json({ message: "Cannot bid on your own job" });
+      if (job.printerId) return res.status(400).json({ message: "Job already assigned" });
+
+      const userPrinters = await storage.getPrintersByUserId(userId);
+      if (userPrinters.length === 0) {
+        return res.status(403).json({ message: "You must be a printer owner to submit bids" });
+      }
+
+      const existingBids = await storage.getBidsByJobId(jobId);
+      const pendingBids = existingBids.filter(b => b.status === 'pending');
+      if (pendingBids.length >= 5) {
+        return res.status(400).json({ message: "Maximum 5 bids reached for this job" });
+      }
+
+      const bidData = insertBidSchema.parse({ ...req.body, jobId, userId });
+      const printerBid = pendingBids.find(b => b.printerId === bidData.printerId);
+      if (printerBid) {
+        return res.status(400).json({ message: "You already have a pending bid on this job" });
+      }
+
+      const bid = await storage.createBid(bidData);
+      await storage.createNotification({
+        userId: job.customerId,
+        type: 'bid_received',
+        title: 'New Bid Received',
+        message: `New bid of $${bid.amount} for "${job.fileName}"`,
+        data: { jobId, bidId: bid.id },
+      });
+
+      res.status(201).json(bid);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid bid data", errors: error.errors });
+      }
+      console.error("Error creating bid:", error);
+      res.status(500).json({ message: "Failed to create bid" });
+    }
   });
+
+  // Get top 3 bids for a job
+  app.get("/api/jobs/:id/bids", isAuthenticated, async (req: any, res) => {
+    try {
+      const jobId = parseInt(req.params.id);
+      const userId = (req.user as any)?.userId;
+      const job = await storage.getJobById(jobId);
+      
+      if (!job) return res.status(404).json({ message: "Job not found" });
+
+      const allBids = await storage.getBidsByJobId(jobId);
+      const pendingBids = allBids.filter(b => b.status === 'pending');
+
+      if (job.customerId === userId) {
+        const sortedBids = [...pendingBids].sort((a, b) => {
+          const priceDiff = parseFloat(a.amount) - parseFloat(b.amount);
+          return priceDiff !== 0 ? priceDiff : a.estimatedCompletionDays - b.estimatedCompletionDays;
+        });
+
+        const top3Bids = sortedBids.slice(0, 3);
+        const bidsWithPrinters = await Promise.all(
+          top3Bids.map(async (bid) => ({
+            ...bid,
+            printer: await storage.getPrinterById(bid.printerId)
+          }))
+        );
+
+        return res.json({ bids: bidsWithPrinters, total: pendingBids.length, showing: bidsWithPrinters.length });
+      }
+
+      const userPrinters = await storage.getPrintersByUserId(userId);
+      const userPrinterIds = userPrinters.map(p => p.id);
+      const userBids = allBids.filter(b => userPrinterIds.includes(b.printerId));
+
+      res.json({ bids: userBids, total: userBids.length, showing: userBids.length });
+    } catch (error) {
+      console.error("Error fetching bids:", error);
+      res.status(500).json({ message: "Failed to fetch bids" });
+    }
+  });
+
+  // Accept a bid
+  app.put("/api/bids/:id/accept", isAuthenticated, async (req: any, res) => {
+    try {
+      const bidId = parseInt(req.params.id);
+      const userId = (req.user as any)?.userId;
+      const bid = await storage.getBidById(bidId);
+      
+      if (!bid) return res.status(404).json({ message: "Bid not found" });
+
+      const job = await storage.getJobById(bid.jobId);
+      if (!job) return res.status(404).json({ message: "Job not found" });
+      if (job.customerId !== userId) return res.status(403).json({ message: "Only job owner can accept bids" });
+      if (bid.status !== 'pending') return res.status(400).json({ message: "Bid is no longer pending" });
+
+      const acceptedBid = await storage.acceptBid(bidId);
+      await storage.updateJob(job.id, { printerId: bid.printerId, finalCost: bid.amount, status: 'matched' });
+
+      const allBids = await storage.getBidsByJobId(bid.jobId);
+      await Promise.all(
+        allBids.filter(b => b.id !== bidId && b.status === 'pending').map(b => storage.rejectBid(b.id))
+      );
+
+      await storage.createNotification({
+        userId: bid.userId,
+        type: 'bid_accepted',
+        title: 'Bid Accepted!',
+        message: `Your bid of $${bid.amount} was accepted for "${job.fileName}"`,
+        data: { jobId: job.id, bidId: bid.id },
+      });
+
+      res.json({ bid: acceptedBid, job: await storage.getJobById(job.id) });
+    } catch (error) {
+      console.error("Error accepting bid:", error);
+      res.status(500).json({ message: "Failed to accept bid" });
+    }
+  });
+
+  // Withdraw a bid
+  app.put("/api/bids/:id/withdraw", isAuthenticated, async (req: any, res) => {
+    try {
+      const bidId = parseInt(req.params.id);
+      const userId = (req.user as any)?.userId;
+      const bid = await storage.getBidById(bidId);
+      
+      if (!bid) return res.status(404).json({ message: "Bid not found" });
+      if (bid.userId !== userId) return res.status(403).json({ message: "You can only withdraw your own bids" });
+      if (bid.status !== 'pending') return res.status(400).json({ message: "Can only withdraw pending bids" });
+
+      const withdrawnBid = await storage.withdrawBid(bidId);
+      res.json(withdrawnBid);
+    } catch (error) {
+      console.error("Error withdrawing bid:", error);
+      res.status(500).json({ message: "Failed to withdraw bid" });
+    }
+  });
+
+      res.json(bidsWithJobs);
+    } catch (error) {
+      console.error("Error fetching printer bids:", error);
+      res.status(500).json({ message: "Failed to fetch bids" });
+    }
+
 
   // Quality photo upload and AI analysis routes
   app.post("/api/jobs/:id/quality-photos", isAuthenticated, async (req: any, res) => {

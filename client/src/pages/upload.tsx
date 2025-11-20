@@ -372,6 +372,19 @@ export default function UploadPage() {
                     data-testid="textarea-notes"
                   />
                 </div>
+
+                <div className="bg-blue-50 dark:bg-blue-950 border-2 border-blue-200 dark:border-blue-800 p-4 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <DollarSign className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">Competitive Bidding</h4>
+                      <p className="text-sm text-blue-700 dark:text-blue-300">
+                        After payment, printer owners will submit competitive bids on your job.
+                        You'll see the best 3 offers and can choose the one that works best for you.
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
