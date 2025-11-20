@@ -13,6 +13,7 @@ import { EscrowStatus } from "@/components/EscrowStatus";
 import { PrinterMatches } from "@/components/PrinterMatches";
 import { DisputeDialog } from "@/components/DisputeDialog";
 import { DisputeList } from "@/components/DisputeList";
+import { BidsList } from "@/components/BidsList";
 import { useState } from "react";
 
 const JOB_STATUS_CONFIG = {
@@ -290,6 +291,7 @@ function JobCard({ job }: { job: Job }) {
   const StatusIcon = statusConfig.icon;
   const needsPayment = ['pending', 'expired'].includes(job.paymentStatus || '') || (!job.paymentStatus && job.status === 'pending');
   const isPaid = job.paymentStatus === 'paid';
+  const showBids = isPaid && ['pending', 'matched'].includes(job.status) && !job.printerId;
   const showMatches = isPaid && job.status === 'matched' && !job.printerId;
   const showEscrow = isPaid && job.status !== 'pending';
 
@@ -332,7 +334,7 @@ function JobCard({ job }: { job: Job }) {
               </Button>
             )}
 
-            {(showMatches || showEscrow || job.status === 'completed') && (
+            {(showBids || showMatches || showEscrow || job.status === 'completed') && (
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm">
                   <ChevronDown className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -350,7 +352,13 @@ function JobCard({ job }: { job: Job }) {
         </div>
 
         <CollapsibleContent className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800 space-y-4">
-          {showMatches && (
+          {showBids && (
+            <div>
+              <BidsList jobId={job.id} jobName={job.fileName || undefined} />
+            </div>
+          )}
+
+          {showMatches && !showBids && (
             <div>
               <h4 className="text-sm font-semibold mb-3">Suggested Printers</h4>
               <PrinterMatches jobId={job.id} currentPrinterId={job.printerId || undefined} />

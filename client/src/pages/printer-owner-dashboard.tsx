@@ -7,6 +7,8 @@ import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { AvailableJobs } from "@/components/AvailableJobs";
+import { MyBids } from "@/components/MyBids";
 import type { Job, Printer } from "@shared/schema";
 
 const JOB_STATUS_CONFIG = {
@@ -251,6 +253,29 @@ export default function PrinterOwnerDashboard() {
             )}
           </CardContent>
         </Card>
+
+        {/* Bidding Section */}
+        {myPrinters.length > 0 && (
+          <>
+            <Card className="border-2 border-black dark:border-white mb-8">
+              <CardHeader>
+                <CardTitle className="text-black dark:text-white">Job Opportunities</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AvailableJobs printers={myPrinters} />
+              </CardContent>
+            </Card>
+
+            <Card className="border-2 border-black dark:border-white mb-8">
+              <CardHeader>
+                <CardTitle className="text-black dark:text-white">My Bids</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MyBids printerIds={myPrinterIds} />
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         {/* Recent Jobs */}
         <Card className="border-2 border-black dark:border-white">
