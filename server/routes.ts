@@ -146,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         amount: amountCents,
         currency: 'USD',
         externalUniqId: jobId.toString(),
-        redirectUrl: `${req.protocol}://${req.hostname}/customer/dashboard`,
+        redirectUrl: `${req.protocol}://${req.get('host')}/customer/dashboard`,
         label: `3D Print Job #${jobId} - ${job.fileName || 'Print'}`,
         metadata: {
           jobId: jobId,
