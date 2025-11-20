@@ -1497,6 +1497,119 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Attach broadcast functions to the server for use in routes
   (httpServer as any).broadcastToUser = broadcastToUser;
+
+  // ==================== DEVELOPMENT ONLY ROUTES ====================
+  if (process.env.NODE_ENV === 'development') {
+    const { seedFakePrinters, cleanupFakePrinters, getFakePrinters } = await import("./devSeed");
+
+    // Seed fake printers for testing
+    app.post("/api/dev/seed-printers", async (req, res) => {
+      try {
+        const printers = await seedFakePrinters();
+        res.json({
+          success: true,
+          message: `Seeded ${printers.length} fake printers`,
+          printers: printers.map(p => ({ id: p.id, name: p.name, price: p.pricePerGram })),
+        });
+      } catch (error) {
+        console.error("Error seeding printers:", error);
+        res.status(500).json({ message: "Failed to seed printers" });
+      }
+    });
+
+    // Cleanup fake printers
+    app.delete("/api/dev/seed-printers", async (req, res) => {
+      try {
+        const result = await cleanupFakePrinters();
+        res.json({
+          success: true,
+          message: `Cleaned up ${result.deleted} fake printers`,
+        });
+      } catch (error) {
+        console.error("Error cleaning up printers:", error);
+        res.status(500).json({ message: "Failed to cleanup printers" });
+      }
+    });
+
+    // Get fake printers
+    app.get("/api/dev/seed-printers", async (req, res) => {
+      try {
+        const printers = await getFakePrinters();
+        res.json({ printers });
+      } catch (error) {
+        console.error("Error fetching fake printers:", error);
+        res.status(500).json({ message: "Failed to fetch printers" });
+      }
+    });
+
+    // Auto-submit bids from fake printers
+    app.post("/api/dev/auto-bid/:jobId", async (req, res) => {
+      try {
+        const jobId = parseInt(req.params.jobId);
+        const job = await storage.getJobById(jobId);
+
+        if (!job) {
+          return res.status(404).json({ message: "Job not found" });
+        }
+
+        const printers = await getFakePrinters();
+        if (printers.length === 0) {
+          return res.status(400).json({ message: "No fake printers found. Run POST /api/dev/seed-printers first" });
+        }
+
+        // Create bids with varying prices and lead times
+        const bidPromises = printers.map(async (printer, index) => {
+          const baseCost = parseFloat(job.estimatedCost || "25");
+
+          // Vary the bid amounts around the base cost
+          const priceMultipliers = [0.9, 0.75, 1.15, 0.85, 1.0]; // Different pricing strategies
+          const leadTimes = [3, 5, 2, 7, 4]; // Days
+
+          const bidAmount = (baseCost * priceMultipliers[index]).toFixed(2);
+
+          const bid = await storage.createBid({
+            jobId,
+            printerId: printer.id,
+            userId: "dev-printer-owner",
+            amount: bidAmount,
+            estimatedCompletionDays: leadTimes[index],
+            notes: `Bid from ${printer.name}. ${printer.description}`,
+            status: "pending",
+            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          });
+
+          return bid;
+        });
+
+        const bids = await Promise.all(bidPromises);
+
+        // Create notification for the customer
+        await storage.createNotification({
+          userId: job.customerId,
+          type: 'bid_received',
+          title: 'New Bids Received',
+          message: `You received ${bids.length} bids for "${job.fileName}"`,
+          data: { jobId, bidCount: bids.length },
+        });
+
+        res.json({
+          success: true,
+          message: `Created ${bids.length} bids from fake printers`,
+          bids: bids.map(b => ({
+            id: b.id,
+            printerId: b.printerId,
+            amount: b.amount,
+            days: b.estimatedCompletionDays,
+          })),
+        });
+      } catch (error) {
+        console.error("Error auto-bidding:", error);
+        res.status(500).json({ message: "Failed to create auto-bids" });
+      }
+    });
+
+    console.log("🔧 Development routes enabled");
+  }
   (httpServer as any).broadcastJobUpdate = broadcastJobUpdate;
   
   // Development-only endpoint to simulate payment completion
