@@ -41,23 +41,26 @@ This folder contains interactive demos of features that normally require multipl
 ---
 
 ### 3. 💼 Job Marketplace (`/dev/sim/job-marketplace`)
-**Status:** 🚧 Planned
+**Status:** ✅ Complete
 
-**What it will show:**
-- List of 10-15 open jobs from various customers
+**What it shows:**
+- 12 open jobs from various customers
 - Job details:
   - Material requirements
   - Estimated cost
   - Quantity
-  - Upload date
-  - STL preview (mock)
+  - Customer location and distance
+  - Customer name and rating
+  - Special notes
 - Filter options:
   - Material type
-  - Price range
-  - Location
-  - Quantity
-- Bid submission dialog (demo mode)
-- Already bid indicator
+  - Max price
+  - Max distance
+- Sort options:
+  - Most recent
+  - Price (high to low, low to high)
+  - Distance (near to far)
+- Bid submission button (demo mode with toast)
 
 **Use case:** Test the printer owner experience of browsing jobs and deciding which to bid on.
 
@@ -103,9 +106,9 @@ These features are hard to test because they require:
 
 ## Implementation Priority
 
-1. ✅ **Bidding** - Complete (`bid-simulation.tsx`)
-2. 🎯 **Printer Discovery** - High priority (core customer flow)
-3. 🎯 **Job Marketplace** - High priority (core printer owner flow)
+1. ✅ **Bidding** - Complete (`bidding.tsx`)
+2. ✅ **Job Marketplace** - Complete (`job-marketplace.tsx`)
+3. 🎯 **Printer Discovery** - High priority (core customer flow)
 4. 📋 **Notifications** - Medium priority (engagement/UX)
 
 ---

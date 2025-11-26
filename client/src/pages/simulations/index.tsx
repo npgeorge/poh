@@ -51,13 +51,13 @@ const SIMULATIONS = [
     title: "Job Marketplace",
     description: "Experience the printer owner view of browsing jobs and submitting bids",
     icon: Briefcase,
-    status: "planned" as const,
+    status: "complete" as const,
     path: "/dev/sim/job-marketplace",
     features: [
-      "10+ open jobs with varying requirements",
+      "12 open jobs with varying requirements",
       "Filter by material, price, location",
-      "Submit bid dialog (demo mode)",
-      "Job details and STL preview"
+      "Sort by recent, price, distance",
+      "Job details with customer info"
     ],
     difficulty: "Medium",
     setupTime: "0 minutes"

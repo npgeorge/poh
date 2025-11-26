@@ -106,17 +106,19 @@ All simulations are accessible without authentication and require zero setup.
 ---
 
 ### 3. 💼 Job Marketplace (Printer Owner View)
-**Status:** 🚧 High Priority
+**Status:** ✅ Complete
 
 **Why it needs simulation:**
 - Requires multiple customers posting jobs
 - Needs variety in requirements and budgets
 - Hard to test bid decision-making process
 
-**What we'll build:**
+**What we built:**
 - 12 open jobs from various mock customers
 - Diverse requirements and budgets
-- Real-time availability indicators
+- Working filters and sort functionality
+
+**Access:** `/dev/sim/job-marketplace`
 
 **Mock Jobs:**
 1. **Mechanical Part** - PLA, $15 estimate, 1x, San Jose, CA
@@ -290,11 +292,13 @@ Or keep them for internal demos! They're harmless in production (just hidden fro
 
 ## Summary
 
-**Complete:** Bidding simulation
+**Complete:**
+- ✅ Bidding simulation
+- ✅ Job Marketplace simulation
+
 **Next:** Printer Discovery (2-3 hours)
-**Then:** Job Marketplace (2-3 hours)
 **Future:** Notifications (1-2 hours)
 
-Total implementation time: ~6-8 hours for all 3 priority flows.
+Total implementation time: ~3-4 hours remaining for all priority flows.
 
 **Access:** `http://localhost:3000/dev/sim`
